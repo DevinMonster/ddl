@@ -13,7 +13,7 @@ class InvertResidualBlock(nn.Module):
         :param in_channels: 输入通道数
         :param out_channels: 输出通道数
         :param stride: 卷积核移动的步长
-        :param expansion_ratio: 输出扩张率
+        :param expansion_ratio: 隐藏层输出扩张率
         '''
         super(InvertResidualBlock, self).__init__()
         self.stride = stride

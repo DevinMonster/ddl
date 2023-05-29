@@ -23,9 +23,8 @@ class CrossEntropyLoss(nn.Module):
 
 class UnbiasedCrossEntropyLoss(nn.Module):
     '''
-    this is a direct implement of MiB's UnbiasedCE to
-    deal with the old classes become to background at
-    current stage
+    this is a direct implement of MiB's UnbiasedCE
+    could deal with the old classes become to background at current stage
     '''
 
     def __init__(self, num_old_classes, reduction='mean'):
@@ -40,6 +39,7 @@ class UnbiasedCrossEntropyLoss(nn.Module):
         '''
         n_old = self.n_old
         p_x = F.softmax(x, dim=1)
+        # current background may contain old classes
         p_x[:, 0] = torch.sum(p_x[:, :n_old], dim=1)
         p_x[:, 1:n_old] = 0.
 
@@ -82,9 +82,8 @@ class KDLoss(nn.Module):
 
 class UnbiasedKDLoss(nn.Module):
     '''
-    this is a direct implement of MiB's unbiased
-    knowledge distillation utils that can fix the issue
-    if current classes' pixel belongs to previous stage's background
+    this is a direct implement of MiB's unbiased knowledge distillation loss
+    that can fix the issue if current classes' pixel belongs to previous stage's background
     '''
 
     def __init__(self, reduction='mean'):
@@ -102,12 +101,11 @@ class UnbiasedKDLoss(nn.Module):
         q_prev = F.softmax(y, dim=1)
         # log{q^t_x}
         q_cur = F.softmax(x, dim=1)
-        # sum up all the probability new classes to background class
+        # sum up all the probability of new classes to background class
         idx = torch.tensor([0] + list(range(c2, c1))).to(x.device)
-        # add up new classes prob to background classes
         q_cur[:, 0] = torch.sum(q_cur[:, idx], dim=1)
         log_q_cur = torch.log(q_cur.narrow(1, 0, c2))
-        # utils
+
         assert log_q_cur.shape == q_prev.shape
         loss = -((q_prev * log_q_cur).mean(dim=1))
         if self.reduction == 'mean':
