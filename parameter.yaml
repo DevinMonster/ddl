@@ -1,0 +1,35 @@
+# yaml
+# dataset: voc,...
+dataset: 'voc'
+
+# if you have already downloaded this dataset, make it to false
+need_download: false
+
+# random seeds
+seed: 1999
+
+# task (see more details in ./datasets/task.py)
+#  voc: offline, 19-1, 19-1b, 15-5, 15-5s, 10-5-5
+#  ...
+task: '19-1'
+
+# stage (see more details in ./datasets/task.py)
+stage: 1
+
+# path of dataset
+path_dataset: './data/'
+
+# make part of train set to be validation set
+partition: true
+# partition ratio
+partition_r: 0.7
+
+# batch size of one iter
+batch_size: 4
+
+# num of workers
+num_workers: 2
+
+# backbone (see more details in dir ./models)
+backbone: 'resnet50'
+

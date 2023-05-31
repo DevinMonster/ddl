@@ -12,26 +12,28 @@ class VOCIncrementSegmentation(Dataset):
             year: year of competition
             is_train: train mode
             download: if you haven't downloaded dataset open it
+            transforms: transform both img, and it's mask
             img_transform: transform img
             msk_transform: transform mask
             new_labels: labels of classes learn in current stage
             old_labels: labels of 0...current-1 stages
     '''
 
-    def __init__(self, path, year="2012", is_train=True, download=False,
-                 img_transform=None, msk_transform=None, new_labels=None,
-                 old_labels=None):
+    def __init__(self, path, year="2012",
+                 is_train=True, download=False,
+                 transforms=None, new_labels=None, old_labels=None):
         # check args
         assert year in torchvision.datasets.voc.DATASET_YEAR_DICT, \
             f"we don't have dataset in {year}"
         super().__init__()
 
-        voc = VOCSegmentation(path, year, "train" if is_train else "val",
-                              download, img_transform, msk_transform)
+        voc = VOCSegmentation(path, year, "train" if is_train else "val", download, transforms=transforms)
+
         self.dataset = voc  # from scratch
         # increment learning
-        if new_labels is not None:
+        if old_labels is not None and len(old_labels) > 0:
             new_labels = self._true_labels(new_labels)
+            old_labels = self._true_labels(old_labels)
             # filter index of
             idx = filter_images(voc, new_labels, old_labels)
             self.dataset = Subset(voc, idx)
@@ -47,22 +49,19 @@ class VOCIncrementSegmentation(Dataset):
         return [0] + [v for v in labels if v != 0] if labels else []
 
 
-def filter_images(dataset, new_labels, old_labels, overlap=True):
+def filter_images(dataset, new_labels, old_labels):
     """
-    从对应的dataset中筛出labels对应的
+    TODO: 该函数有误并且有性能问题
+    从对应的dataset中筛出labels对应的类别的图像
     """
     tot_labels = set(new_labels + old_labels + [0, 255])
 
     # 当前图像如果没有
     def fil(c):
-        f = any((x != 0 and x in new_labels) for x in c)
-        if not overlap:
-            return f and all(x in tot_labels for x in c)
-        return f
+        return any((x != 0 and x in new_labels) for x in c)
 
     ids = []
-
-    for i, img, mask in enumerate(dataset):
+    for i, (img, mask) in enumerate(dataset):
         # all the current img classes in cls
         cls = np.unique(np.array(mask))
         # filter
