@@ -11,10 +11,10 @@ seed: 1999
 # task (see more details in ./datasets/task.py)
 #  voc: offline, 19-1, 19-1b, 15-5, 15-5s, 10-5-5
 #  ...
-task: '19-1'
+task: '15-5'
 
 # stage (see more details in ./datasets/task.py)
-stage: 1
+stage: 0
 
 # path of dataset
 path_dataset: './data/'
@@ -22,14 +22,31 @@ path_dataset: './data/'
 # make part of train set to be validation set
 partition: true
 # partition ratio
-partition_r: 0.7
+partition_r: 0.75
 
 # batch size of one iter
 batch_size: 4
 
 # num of workers
-num_workers: 2
+num_workers: 4
 
 # backbone (see more details in dir ./models)
-backbone: 'resnet50'
+backbone: 'deeplabv3_resnet50'
 
+# epochs
+epochs: 10
+
+# learning rate of model
+lr: 0.004
+
+# learning rate policy ‘cos', 'step'
+lr_policy: 'cos'
+
+# do we have checkpoint in current stage
+checkpoint: false
+
+# loss 'MiB', 'CE'
+loss: 'MiB'
+
+# weight decay
+weight_decay: 0.0001

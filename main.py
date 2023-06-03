@@ -3,18 +3,29 @@ import random
 
 import numpy as np
 import torch
+import torchvision.models
 from torch.utils import data
 
-from datasets import VOCIncrementSegmentation, RandomHorizontalFlip,\
-    ToTensor, Normalize, Compose, RandomResizedCrop
+from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
+    RandomHorizontalFlip
 from datasets import get_task_labels, classes_per_task
 from utils.config import Config
+from utils.trainner import Trainner
 
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
 
 increment_datasets = {
     'voc': VOCIncrementSegmentation,
+}
+
+models_implemented = {
+    'deeplabv3_resnet50': torchvision.models.segmentation.deeplabv3_resnet50,
+    'deeplabv3_resnet101': torchvision.models.segmentation.deeplabv3_resnet101,
+    'fcn_resnet50': torchvision.models.segmentation.fcn_resnet50,
+    'fcn_resnet101': torchvision.models.segmentation.fcn_resnet101,
+    'deeplabv3_mobilenet_v3_large': torchvision.models.segmentation.deeplabv3_mobilenet_v3_large,
+    'lraspp_mobilenet_v3_large': torchvision.models.segmentation.lraspp_mobilenet_v3_large,
 }
 
 
@@ -41,6 +52,7 @@ def fetch_datasets(params):
         RandomResizedCrop(512, (0.5, 2.)),
         RandomHorizontalFlip(),
         ToTensor(),
+        RemoveEdge(),
         Normalize(mean, std)
     ])
     valid_transform = Compose([
@@ -74,17 +86,40 @@ def load_data(params, train_ds, valid_ds, test_ds):
     print("Loading Data to dataloader!")
     bs = params['batch_size']
     wkr = params['num_workers']
-    train = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True)
-    valid = data.DataLoader(valid_ds, bs, num_workers=wkr)
-    test = data.DataLoader(test_ds, bs, num_workers=wkr)
+    train = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+    valid = data.DataLoader(valid_ds, bs, num_workers=wkr, persistent_workers=True)
+    test = data.DataLoader(test_ds, bs, num_workers=wkr, persistent_workers=True)
     print(f"train size: {len(train)}, valid size: {len(valid)}, test size: {len(test)}")
-    print("Loading Finished!")
+    print("Load data Finished!")
     return train, valid, test
 
 
-# TODO: build model模块待完成
+# build model模块
 def build_model(params):
+    print("Loading Model...")
     num_classes = classes_per_task(params['dataset'], params['task'], params['stage'])
+    print(f"classes per task: {num_classes}")
+
+    # Load new model
+    model_new = models_implemented[params['backbone']](num_classes=sum(num_classes))
+    if params['checkpoint']:
+        state_dict = torch.load(
+            f"./states/{params['dataset']}/{params['task']}/{params['backbone']}_{params['stage']}.pth")
+        model_new.load_state_dict(state_dict)
+        del state_dict
+
+    # Load old model
+    model_old = None
+    if params['stage'] != 0:
+        old_classes = classes_per_task(params['dataset'], params['task'], params['stage'] - 1)
+        model_old = models_implemented[params['backbone']](num_classes=sum(old_classes))
+        state_dict = torch.load(
+            f"./states/{params['dataset']}/{params['task']}/{params['backbone']}_{params['stage'] - 1}.pth", 'cpu')
+        model_old.load_state_dict(state_dict)
+        del state_dict
+
+    print("Load Model Finished!")
+    return model_new, model_old
 
 
 def solve(params):
@@ -101,13 +136,18 @@ def solve(params):
     set_random_seeds(params['seed'])
 
     # fetch dataset from files
-    dataset = fetch_datasets(params)
-    train, valid, test = load_data(params, *dataset)
-
+    datasets = fetch_datasets(params)
+    train, valid, test = load_data(params, *datasets)
     # build model
-    # model = build_model(params)
+    new_model, old_model = build_model(params)
+
+    # train model
+    trainer = Trainner(params, new_model, old_model, train, valid, device)
+    trainer.train()
 
 
 if __name__ == '__main__':
+    torch.autograd.set_detect_anomaly(True)
     config = Config("./parameter.yaml")
     solve(config.param)
+    # print(try_gpu(1))

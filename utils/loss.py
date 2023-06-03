@@ -22,31 +22,23 @@ class CrossEntropyLoss(nn.Module):
 
 
 class UnbiasedCrossEntropyLoss(nn.Module):
-    '''
-    this is a direct implement of MiB's UnbiasedCE
-    could deal with the old classes become to background at current stage
-    '''
-
-    def __init__(self, num_old_classes, reduction='mean'):
+    def __init__(self, old_cl=None, reduction='mean', ignore_index=255):
         super().__init__()
-        self.n_old = num_old_classes
         self.reduction = reduction
+        self.ignore_index = ignore_index
+        self.old_cl = old_cl
 
-    def forward(self, x, y):
-        '''
-        :param x: model's logits with shape B,C(1+old+new),H,W
-        :param y: true label with shape B,H,W
-        '''
-        n_old = self.n_old
-        p_x = F.softmax(x, dim=1)
-        # current background may contain old classes
-        p_x[:, 0] = torch.sum(p_x[:, :n_old], dim=1)
-        p_x[:, 1:n_old] = 0.
+    def forward(self, inputs, targets):
+        old_cl = self.old_cl
+        outputs = torch.zeros_like(inputs)  # B, C (1+V+N), H, W
+        den = torch.logsumexp(inputs, dim=1)  # B, H, W       den of softmax
+        outputs[:, 0] = torch.logsumexp(inputs[:, 0:old_cl], dim=1) - den  # B, H, W       p(O)
+        outputs[:, old_cl:] = inputs[:, old_cl:] - den.unsqueeze(dim=1)  # B, N, H, W    p(N_i)
 
-        # if current pixel belongs to old classes make it to background class
-        labels = y.clone()
-        labels[y < n_old] = 0
-        return F.nll_loss(torch.log(p_x), labels, reduction=self.reduction)
+        labels = targets.clone()  # B, H, W
+        labels[targets < old_cl] = 0  # just to be sure that all labels old belongs to zero
+
+        return F.nll_loss(outputs, labels, ignore_index=self.ignore_index, reduction=self.reduction)
 
 
 class KDLoss(nn.Module):
@@ -81,39 +73,38 @@ class KDLoss(nn.Module):
 
 
 class UnbiasedKDLoss(nn.Module):
-    '''
-    this is a direct implement of MiB's unbiased knowledge distillation loss
-    that can fix the issue if current classes' pixel belongs to previous stage's background
-    '''
-
-    def __init__(self, reduction='mean'):
+    def __init__(self, reduction='mean', alpha=1.):
         super().__init__()
         self.reduction = reduction
+        self.alpha = alpha
 
-    def forward(self, x, y):
-        '''
-        :param x: new model's output logits with shape {B,C1(1+old+new),H,W}
-        :param y: old model's output logits with shape {B,C2(1+old),H,W}
-        '''
-        c1, c2 = x.shape[1], y.shape[1]
-        assert c1 > c2, f"must c1 > c2"
-        # q^{t-1}_x
-        q_prev = F.softmax(y, dim=1)
-        # log{q^t_x}
-        q_cur = F.softmax(x, dim=1)
-        # sum up all the probability of new classes to background class
-        idx = torch.tensor([0] + list(range(c2, c1))).to(x.device)
-        q_cur[:, 0] = torch.sum(q_cur[:, idx], dim=1)
-        log_q_cur = torch.log(q_cur.narrow(1, 0, c2))
+    def forward(self, inputs, targets, mask=None):
 
-        assert log_q_cur.shape == q_prev.shape
-        loss = -((q_prev * log_q_cur).mean(dim=1))
+        new_cl = inputs.shape[1] - targets.shape[1]
+
+        targets = targets * self.alpha
+
+        new_bkg_idx = torch.tensor([0] + [x for x in range(targets.shape[1], inputs.shape[1])]).to(inputs.device)
+
+        den = torch.logsumexp(inputs, dim=1)  # B, H, W
+        outputs_no_bgk = inputs[:, 1:-new_cl] - den.unsqueeze(dim=1)  # B, OLD_CL, H, W
+        outputs_bkg = torch.logsumexp(torch.index_select(inputs, index=new_bkg_idx, dim=1), dim=1) - den  # B, H, W
+
+        labels = torch.softmax(targets, dim=1)  # B, BKG + OLD_CL, H, W
+
+        # make the average on the classes 1/n_cl \sum{c=1..n_cl} L_c
+        loss = (labels[:, 0] * outputs_bkg + (labels[:, 1:] * outputs_no_bgk).sum(dim=1)) / targets.shape[1]
+
+        if mask is not None:
+            loss = loss * mask.float()
         if self.reduction == 'mean':
-            loss = loss.mean()
+            outputs = -torch.mean(loss)
         elif self.reduction == 'sum':
-            loss = loss.sum()
+            outputs = -torch.sum(loss)
+        else:
+            outputs = -loss
 
-        return loss
+        return outputs
 
 
 class MiBLoss(nn.Module):
@@ -121,13 +112,14 @@ class MiBLoss(nn.Module):
     simple implement of Modeling the Background Loss
     '''
 
-    def __init__(self, l=0.5, reduction='mean'):
+    def __init__(self, old_cls, alpha=0.5, reduction='mean'):
         super().__init__()
-        self.reduction = reduction
-        self.l = l
+        self.l = alpha
+        # self.uce = UnbiasedCrossEntropyLoss(old_cls, reduction)
+        self.uce = UnbiasedCrossEntropyLoss(old_cls)
+        self.ukd = UnbiasedKDLoss(reduction)
 
-    def forward(self, x_old, x_new, y):
-        new_cls = x_new.shape[1] - x_old.shape[1]
-        uce = UnbiasedCrossEntropyLoss(new_cls, self.reduction)
-        ukd = UnbiasedKDLoss(self.reduction)
-        return uce(x_new, y) + self.l * ukd(x_new, x_old)
+    def forward(self, y_new, y, y_old=None):
+        new_model_loss = self.uce(y_new, y)
+        distill_loss = self.l * self.ukd(y_new, y_old) if y_old else 1e-6
+        return new_model_loss + distill_loss

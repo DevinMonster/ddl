@@ -3,6 +3,8 @@ import random
 import warnings
 from typing import List, Callable
 
+import numpy as np
+import torch
 import torchvision.transforms.functional as F
 from torchvision.transforms.functional import InterpolationMode
 
@@ -94,7 +96,7 @@ class ToTensor:
     def __call__(self, img, msk=None):
         img = F.to_tensor(img)
         if msk is not None:
-            return img, F.to_tensor(msk)
+            return img, torch.tensor(np.array(msk, dtype=np.uint8), dtype=torch.long)
         return img
 
 
@@ -106,3 +108,10 @@ class Normalize:
         img = F.normalize(img, self.mean, self.std)
         if msk is not None: return img, msk
         return img
+
+
+class RemoveEdge:
+    def __call__(self, img, msk, masking_value=0):
+        assert isinstance(msk, torch.Tensor)
+        msk[torch.where(msk == 255)] = masking_value
+        return img, msk

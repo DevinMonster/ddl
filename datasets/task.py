@@ -61,5 +61,6 @@ def classes_per_task(dataset, task, stage):
     '''
     计算从0到stage下每个task有多少个类别，返回列表
     '''
+    assert stage >= 0, f"stage must >= 0, got stage={stage}"
     task_dict = _task_dict(dataset, task, stage)
     return [len(task_dict[s]) for s in range(stage + 1)]
