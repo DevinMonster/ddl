@@ -110,7 +110,7 @@ def build_model(params):
 
     # Load old model
     model_old = None
-    if params['stage'] != 0:
+    if params['stage'] > 0:
         old_classes = classes_per_task(params['dataset'], params['task'], params['stage'] - 1)
         model_old = models_implemented[params['backbone']](num_classes=sum(old_classes))
         state_dict = torch.load(

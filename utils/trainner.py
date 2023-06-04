@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch.optim
 from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
@@ -44,17 +46,11 @@ class Trainner:
             train_losses = []
             for img, msk in tqdm(self.train_ds):
                 img = img.to(self.device)
-                # print(msk.shape)
                 msk = msk.to(self.device)
-                # print(img.shape, msk.shape)
                 y_new = self.new_model(img)['out']
                 y_old = None if self.old_model is None else self.old_model(img)
-                # print(y_new.shape)
-
                 l = self.loss(y_new, msk, y_old)
-                # l = self.loss(y_new, msk)
                 self.optimizer.zero_grad()
-                # print(l)
                 l.backward(retain_graph=True)
                 self.optimizer.step()
                 train_losses.append(l.item())
@@ -64,5 +60,7 @@ class Trainner:
                 print(f"current loss: {train_loss:.5f}")
         print("train step finished, start saving model..")
         params = self.params
-        path = f"./states/{params['dataset']}/{params['task']}/{params['backbone']}_{params['stage']}.pth"
-        torch.save(self.new_model.state_dict(), path)
+        path = f"./states/{params['dataset']}/{params['task']}/"
+        name = f"{params['backbone']}_{params['stage']}-1.pth"
+        os.makedirs(path, exist_ok=True)
+        torch.save(self.new_model.state_dict(), os.path.join(path, name))

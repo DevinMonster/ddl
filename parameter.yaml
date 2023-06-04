@@ -1,5 +1,5 @@
 # yaml
-# dataset: voc,...
+# dataset: voc,..., see more details in main.py 'models_implemented'
 dataset: 'voc'
 
 # if you have already downloaded this dataset, make it to false
@@ -34,10 +34,10 @@ num_workers: 4
 backbone: 'deeplabv3_resnet50'
 
 # epochs
-epochs: 10
+epochs: 30
 
 # learning rate of model
-lr: 0.004
+lr: 0.003
 
 # learning rate policy ‘cos', 'step'
 lr_policy: 'cos'
