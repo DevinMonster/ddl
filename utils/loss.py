@@ -114,12 +114,12 @@ class MiBLoss(nn.Module):
 
     def __init__(self, old_cls, alpha=0.5, reduction='mean'):
         super().__init__()
-        self.l = alpha
+        self.alpha = alpha
         # self.uce = UnbiasedCrossEntropyLoss(old_cls, reduction)
         self.uce = UnbiasedCrossEntropyLoss(old_cls)
         self.ukd = UnbiasedKDLoss(reduction)
 
     def forward(self, y_new, y, y_old=None):
         new_model_loss = self.uce(y_new, y)
-        distill_loss = self.l * self.ukd(y_new, y_old) if y_old else 1e-6
+        distill_loss = self.alpha * (self.ukd(y_new, y_old) if y_old is not None else 1e-6)
         return new_model_loss + distill_loss
