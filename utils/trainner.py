@@ -4,7 +4,6 @@ import numpy as np
 import torch.optim
 from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
 from tqdm import tqdm
-# from torch.nn import CrossEntropyLoss
 
 from datasets import classes_per_task
 from utils.loss import MiBLoss, CrossEntropyLoss
