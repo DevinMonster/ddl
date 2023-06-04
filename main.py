@@ -147,7 +147,7 @@ def solve(params):
 
     # train model
     trainer = Trainner(params, new_model, old_model, train, valid, test, device)
-    trainer.valid()
+    trainer.train()
 
 
 if __name__ == '__main__':

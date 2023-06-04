@@ -14,7 +14,7 @@ seed: 1999
 task: '15-5'
 
 # stage (see more details in ./datasets/task.py)
-stage: 1
+stage: 0
 
 # path of dataset
 path_dataset: './data/'
@@ -22,10 +22,10 @@ path_dataset: './data/'
 # make part of train set to be validation set
 partition: true
 # partition ratio
-partition_r: 0.75
+partition_r: 0.8
 
 # batch size of one iter
-batch_size: 4
+batch_size: 3
 
 # num of workers
 num_workers: 4
@@ -37,7 +37,7 @@ backbone: 'deeplabv3_resnet50'
 epochs: 30
 
 # learning rate of model
-lr: 0.001
+lr: 0.002
 
 # learning rate policy ‘cos', 'step'
 lr_policy: 'cos'

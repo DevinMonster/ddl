@@ -43,6 +43,8 @@ class Trainner:
         self.new_model.train()
         if self.old_model is not None:
             self.old_model.eval()
+
+        best_model_dict, acc = self.new_model.state_dict(), 0
         # start training
         print("Training start...")
         metrics = ""
@@ -62,7 +64,12 @@ class Trainner:
             if train_losses:
                 train_loss = np.sum(train_losses) / len(train_losses)
                 print(f"current loss: {train_loss:.5f}")
+
             cur_res = self.valid()
+            # update best model
+            if float(cur_res['Mean Acc']) > acc:
+                acc = float(cur_res['Mean Acc'])
+                best_model_dict = self.new_model.state_dict()
             metrics += f"epoch: {epoch} \n" + str(cur_res) + "\n"
 
         print("train step finished, start saving model..")
@@ -73,12 +80,8 @@ class Trainner:
         log_name = f"{params['backbone']}_{params['stage']}.txt"
         os.makedirs(model_dict_path, exist_ok=True)
         os.makedirs(log_path, exist_ok=True)
-        torch.save(self.new_model.state_dict(), os.path.join(model_dict_path, model_dict_name))
-        print(f"model saved to: {os.path.join(model_dict_path, model_dict_name)}")
-
-        res = self.test()
-        metrics += f"test result: {str(res)}\n"
-
+        torch.save(best_model_dict, os.path.join(model_dict_path, model_dict_name))
+        print(f"model state saved to: {os.path.join(model_dict_path, model_dict_name)}")
         print("Saving logs...")
         with open(os.path.join(log_path, log_name), "w") as f:
             f.write(metrics)
@@ -100,6 +103,7 @@ class Trainner:
                 y_new = self.new_model(img)['out']
                 y_old = self.old_model(img)['out']
                 y_pred = torch.argmax(y_new, dim=1)
+                print(y_pred.shape, msk.shape)
                 l = self.loss(y_new, msk, y_old)
                 loss_item.append(l.item())
                 self.metrics.update(y_pred.cpu().numpy(), msk.cpu().numpy())

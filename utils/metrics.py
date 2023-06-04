@@ -65,12 +65,11 @@ class CSSMetrics(_StreamMetrics):
         return string
 
     def _fast_hist(self, label_true, label_pred):
-        mask = (label_true >= 0) & (label_true < self.n_classes)
-        hist = np.bincount(
-            self.n_classes * label_true[mask].astype(int) + label_pred[mask],
-            minlength=self.n_classes ** 2,
-        ).reshape(self.n_classes, self.n_classes)
-        return hist
+        mask = (0 <= label_true) & (label_true < self.n_classes)
+        pred = self.n_classes * label_true[mask].astype(int) + label_pred[mask]
+        hist = np.bincount(pred, minlength=self.n_classes ** 2)
+        print(hist)
+        return hist.reshape(self.n_classes, self.n_classes)
 
     def get_results(self):
         """Returns accuracy score evaluation result.
@@ -102,9 +101,9 @@ class CSSMetrics(_StreamMetrics):
             "Mean Acc": acc_cls,
             "FreqW Acc": fwavacc,
             "Mean IoU": mean_iu,
-            "Class IoU": cls_iu,
-            "Class Acc": cls_acc,
-            "Confusion Matrix": self.confusion_matrix_to_fig()
+            # "Class IoU": cls_iu,
+            # "Class Acc": cls_acc,
+            # "Confusion Matrix": self.confusion_matrix_to_fig()
         }
 
     def reset(self):
