@@ -25,7 +25,7 @@ partition: true
 partition_r: 0.75
 
 # batch size of one iter
-batch_size: 3
+batch_size: 4
 
 # num of workers
 num_workers: 4
@@ -50,3 +50,6 @@ loss: 'MiB'
 
 # weight decay
 weight_decay: 0.0001
+
+# resize the input picture size
+cropped_size: 512

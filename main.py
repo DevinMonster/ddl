@@ -7,10 +7,12 @@ import torchvision.models
 from torch.utils import data
 
 from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
-    RandomHorizontalFlip
+    RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
 from utils.config import Config
+from utils import CSSMetrics
 from utils.trainner import Trainner
+from utils import MiBLoss
 
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
@@ -49,13 +51,15 @@ def fetch_datasets(params):
 
     # transforms of imgs
     train_transform = Compose([
-        RandomResizedCrop(512, (0.5, 2.)),
+        RandomResizedCrop(params['cropped_size'], (0.5, 2.)),
         RandomHorizontalFlip(),
         ToTensor(),
         RemoveEdge(),
         Normalize(mean, std)
     ])
-    valid_transform = Compose([
+    valid_test_transform = Compose([
+        Resize(params['cropped_size']),
+        CenterCrop(params['cropped_size']),
         ToTensor(),
         Normalize(mean, std)
     ])
@@ -75,9 +79,9 @@ def fetch_datasets(params):
         train_ds, valid_ds = data.random_split(train_ds, [train_len, valid_len])
     else:
         valid_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                           transforms=valid_transform, new_labels=new_labels, old_labels=old_labels)
+                           transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     test_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                      transforms=valid_transform, new_labels=new_labels, old_labels=old_labels)
+                      transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     print("Datasets build finished!")
     return train_ds, valid_ds, test_ds
 
@@ -87,8 +91,8 @@ def load_data(params, train_ds, valid_ds, test_ds):
     bs = params['batch_size']
     wkr = params['num_workers']
     train = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    valid = data.DataLoader(valid_ds, bs, num_workers=wkr, persistent_workers=True)
-    test = data.DataLoader(test_ds, bs, num_workers=wkr, persistent_workers=True)
+    valid = data.DataLoader(valid_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+    test = data.DataLoader(test_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
     print(f"train size: {len(train)}, valid size: {len(valid)}, test size: {len(test)}")
     print("Load data Finished!")
     return train, valid, test
@@ -142,8 +146,8 @@ def solve(params):
     new_model, old_model = build_model(params)
 
     # train model
-    trainer = Trainner(params, new_model, old_model, train, valid, device)
-    trainer.train()
+    trainer = Trainner(params, new_model, old_model, train, valid, test, device)
+    trainer.valid()
 
 
 if __name__ == '__main__':
