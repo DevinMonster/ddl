@@ -61,6 +61,6 @@ class Trainner:
         print("train step finished, start saving model..")
         params = self.params
         path = f"./states/{params['dataset']}/{params['task']}/"
-        name = f"{params['backbone']}_{params['stage']}-1.pth"
+        name = f"{params['backbone']}_{params['stage']}.pth"
         os.makedirs(path, exist_ok=True)
         torch.save(self.new_model.state_dict(), os.path.join(path, name))
