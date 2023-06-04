@@ -1,4 +1,6 @@
+import collections
 import math
+import numbers
 import random
 import warnings
 from typing import List, Callable
@@ -115,3 +117,28 @@ class RemoveEdge:
         assert isinstance(msk, torch.Tensor)
         msk[torch.where(msk == 255)] = masking_value
         return img, msk
+
+
+class Resize:
+    def __init__(self, size, interpolation=InterpolationMode.BILINEAR):
+        assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
+        self.size = size
+        self.interpolation = interpolation
+
+    def __call__(self, img, mak=None):
+        if mak is not None:
+            return F.resize(img, self.size, self.interpolation), F.resize(mak, self.size, InterpolationMode.NEAREST)
+        return F.resize(img, self.size, self.interpolation)
+
+
+class CenterCrop:
+    def __init__(self, size):
+        self.size = size
+        if isinstance(size, numbers.Integral):
+            self.size = [int(size), int(size)]
+
+    def __call__(self, img, msk=None):
+        if msk is not None:
+            return F.center_crop(img, self.size), \
+                F.center_crop(msk, self.size)
+        return F.center_crop(img, self.size)
