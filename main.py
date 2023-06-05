@@ -10,9 +10,7 @@ from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, Rem
     RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
 from utils.config import Config
-from utils import CSSMetrics
 from utils.trainner import Trainner
-from utils import MiBLoss
 
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
