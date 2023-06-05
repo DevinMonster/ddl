@@ -19,6 +19,9 @@ stage: 0
 # path of dataset
 path_dataset: './data/'
 
+# path of states
+path_state: './states'
+
 # make part of train set to be validation set
 partition: true
 # partition ratio

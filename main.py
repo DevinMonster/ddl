@@ -102,21 +102,30 @@ def build_model(params):
     num_classes = classes_per_task(params['dataset'], params['task'], params['stage'])
     print(f"classes per task: {num_classes}")
 
+    # get path of old and new model
+    model_path = f"{params['path_state']}/{params['dataset']}/{params['task']}/"
+    new_name = f"{params['backbone']}_{params['stage']}.pth"
+    old_name = f"{params['backbone']}_{params['stage'] - 1}.pth"
+    new_pth = os.path.join(model_path, new_name)
+    old_pth = os.path.join(model_path, old_name)
+
     # Load new model
     model_new = models_implemented[params['backbone']](num_classes=sum(num_classes))
-    if params['checkpoint']:
-        state_dict = torch.load(
-            f"./states/{params['dataset']}/{params['task']}/{params['backbone']}_{params['stage']}.pth")
+    if params['checkpoint'] and os.path.exists(new_pth):
+        state_dict = torch.load(new_pth, 'cpu')
+        model_new.load_state_dict(state_dict)
+        del state_dict
+    elif params['stage'] > 0 and os.path.exists(old_pth):
+        state_dict = torch.load(old_pth)
         model_new.load_state_dict(state_dict)
         del state_dict
 
     # Load old model
     model_old = None
-    if params['stage'] > 0:
+    if params['stage'] > 0 and os.path.exists(old_pth):
         old_classes = classes_per_task(params['dataset'], params['task'], params['stage'] - 1)
         model_old = models_implemented[params['backbone']](num_classes=sum(old_classes))
-        state_dict = torch.load(
-            f"./states/{params['dataset']}/{params['task']}/{params['backbone']}_{params['stage'] - 1}.pth", 'cpu')
+        state_dict = torch.load(old_pth, 'cpu')
         model_old.load_state_dict(state_dict)
         del state_dict
 
@@ -140,6 +149,7 @@ def solve(params):
     # fetch dataset from files
     datasets = fetch_datasets(params)
     train, valid, test = load_data(params, *datasets)
+
     # build model
     new_model, old_model = build_model(params)
 
@@ -149,7 +159,7 @@ def solve(params):
 
 
 if __name__ == '__main__':
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     config = Config("./parameter.yaml")
     solve(config.param)
     # print(try_gpu(1))

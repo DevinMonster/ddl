@@ -57,7 +57,7 @@ class Trainner:
                 y_old = None if self.old_model is None else self.old_model(img)['out']
                 l = self.loss(y_new, msk, y_old)
                 self.optimizer.zero_grad()
-                l.backward(retain_graph=True)
+                l.backward()
                 self.optimizer.step()
                 train_losses.append(l.item())
             self.scheduler.step()
