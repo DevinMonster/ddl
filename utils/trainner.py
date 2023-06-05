@@ -44,7 +44,7 @@ class Trainner:
         if self.old_model is not None:
             self.old_model.eval()
 
-        best_model_dict, acc = self.new_model.state_dict(), 0
+        best_model_dict, mIOU = self.new_model.state_dict(), 0
         # start training
         print("Training start...")
         metrics = ""
@@ -67,12 +67,12 @@ class Trainner:
 
             cur_res = self.valid()
             # update best model
-            if float(cur_res['Mean Acc']) > acc:
-                acc = float(cur_res['Mean Acc'])
+            if float(cur_res['Mean IoU']) > mIOU:
+                mIOU = float(cur_res['Mean IoU'])
                 best_model_dict = self.new_model.state_dict()
             metrics += f"epoch: {epoch} \n" + str(cur_res) + "\n"
 
-        print("train step finished, start saving model..")
+        print("train step finished, start saving best model..")
         params = self.params
         model_dict_path = f"./states/{params['dataset']}/{params['task']}/"
         model_dict_name = f"{params['backbone']}_{params['stage']}.pth"
@@ -81,7 +81,10 @@ class Trainner:
         os.makedirs(model_dict_path, exist_ok=True)
         os.makedirs(log_path, exist_ok=True)
         torch.save(best_model_dict, os.path.join(model_dict_path, model_dict_name))
-        print(f"model state saved to: {os.path.join(model_dict_path, model_dict_name)}")
+        print(f"best model state saved to: {os.path.join(model_dict_path, model_dict_name)}")
+
+        metrics += f"Test result:\n {self.test_ds()}\n"
+
         print("Saving logs...")
         with open(os.path.join(log_path, log_name), "w") as f:
             f.write(metrics)
