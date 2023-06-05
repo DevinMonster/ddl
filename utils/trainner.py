@@ -83,7 +83,7 @@ class Trainner:
         torch.save(best_model_dict, os.path.join(model_dict_path, model_dict_name))
         print(f"best model state saved to: {os.path.join(model_dict_path, model_dict_name)}")
 
-        metrics += f"Test result:\n {self.test_ds()}\n"
+        metrics += f"Test result:\n {str(self.test())}\n"
 
         print("Saving logs...")
         with open(os.path.join(log_path, log_name), "w") as f:
