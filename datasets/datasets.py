@@ -33,12 +33,11 @@ class VOCIncrementSegmentation(Dataset):
 
         voc = VOCSegmentation(path, year, "train" if is_train else "val", download)
 
-        # filter index of
         if old_labels is None: old_labels = []
         new_labels = self._true_labels(new_labels)
         old_labels = self._true_labels(old_labels)
         # filter index of
-        idx = filter_images(voc, new_labels, old_labels)
+        idx = filter_images(voc, new_labels, old_labels, is_train)
         self.dataset = Subset(voc, idx)
 
     def __len__(self):
@@ -57,16 +56,17 @@ class VOCIncrementSegmentation(Dataset):
         return [0] + [v for v in labels if v != 0] if labels else []
 
 
-def filter_images(dataset, new_labels, old_labels=None):
+def filter_images(dataset, new_labels, old_labels=None, train=True):
     # Filter images without any label in LABELS (using labels not reordered)
     n_lbs = set(new_labels)
     n_lbs.remove(0)
     tot_lbs = set(new_labels + old_labels + [0, 255])
     idx = []
 
-    def idx_in_labels(cls):
-        return any(c in n_lbs for c in cls) and \
-            all(c in tot_lbs for c in cls)
+    if train:
+        idx_in_labels = lambda cls: any(c in n_lbs for c in cls) and all(c in tot_lbs for c in cls)
+    else:
+        idx_in_labels = lambda cls: all(c in tot_lbs for c in cls)
 
     for i, (_, msk) in tqdm(enumerate(dataset)):
         cls = np.unique(np.array(msk))
