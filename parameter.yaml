@@ -14,7 +14,7 @@ seed: 1999
 task: '15-5'
 
 # stage (see more details in ./datasets/task.py)
-stage: 0
+stage: 1
 
 # path of dataset
 path_dataset: './data/'

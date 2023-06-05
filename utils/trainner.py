@@ -103,7 +103,6 @@ class Trainner:
                 y_new = self.new_model(img)['out']
                 y_old = None if self.old_model is None else self.old_model(img)['out']
                 y_pred = torch.argmax(y_new, dim=1)
-                print(y_pred.shape, msk.shape)
                 l = self.loss(y_new, msk, y_old)
                 loss_item.append(l.item())
                 self.metrics.update(y_pred.cpu().numpy(), msk.cpu().numpy())

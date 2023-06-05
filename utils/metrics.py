@@ -68,7 +68,6 @@ class CSSMetrics(_StreamMetrics):
         mask = (0 <= label_true) & (label_true < self.n_classes)
         pred = self.n_classes * label_true[mask].astype(int) + label_pred[mask]
         hist = np.bincount(pred, minlength=self.n_classes ** 2)
-        print(hist)
         return hist.reshape(self.n_classes, self.n_classes)
 
     def get_results(self):

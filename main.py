@@ -10,7 +10,7 @@ from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, Rem
     RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
 from utils.config import Config
-from utils.trainner import Trainner
+from utils import Trainner
 
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
@@ -117,6 +117,10 @@ def build_model(params):
         del state_dict
     elif params['stage'] > 0 and os.path.exists(old_pth):
         state_dict = torch.load(old_pth)
+        _cur_dict = model_new.state_dict()
+        # 模型输出层的特征进行修改
+        state_dict['classifier.4.weight'] = _cur_dict['classifier.4.weight']
+        state_dict['classifier.4.bias'] = _cur_dict['classifier.4.bias']
         model_new.load_state_dict(state_dict)
         del state_dict
 
