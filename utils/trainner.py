@@ -105,7 +105,7 @@ class Trainner:
                 y_pred = torch.argmax(y_new, dim=1)
                 l = self.loss(y_new, msk, y_old)
                 loss_item.append(l.item())
-                self.metrics.update(y_pred.cpu().numpy(), msk.cpu().numpy())
+                self.metrics.update(msk.cpu().numpy(), y_pred.cpu().numpy())
         res = self.metrics.get_results()
         if len(loss_item) > 0:
             res['Avg Loss'] = np.sum(loss_item) / len(loss_item)

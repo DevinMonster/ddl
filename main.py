@@ -116,7 +116,7 @@ def build_model(params):
         model_new.load_state_dict(state_dict)
         del state_dict
     elif params['stage'] > 0 and os.path.exists(old_pth):
-        state_dict = torch.load(old_pth)
+        state_dict = torch.load(old_pth, 'cpu')
         _cur_dict = model_new.state_dict()
         # 模型输出层的特征进行修改
         state_dict['classifier.4.weight'] = _cur_dict['classifier.4.weight']
@@ -159,7 +159,10 @@ def solve(params):
 
     # train model
     trainer = Trainner(params, new_model, old_model, train, valid, test, device)
-    trainer.train()
+    if params['mode'] == 'train':
+        trainer.train()
+    else:
+        trainer.test()
 
 
 if __name__ == '__main__':

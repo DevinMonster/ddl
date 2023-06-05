@@ -56,3 +56,6 @@ weight_decay: 0.0001
 
 # resize the input picture size
 cropped_size: 512
+
+# mode: "train", "test"
+mode: 'test'
