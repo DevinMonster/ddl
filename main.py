@@ -9,8 +9,8 @@ from torch.utils import data
 from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
     RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
+from utils import xavier_init, kaiming_init, mib_init
 from utils.config import Config
-from utils import Trainner
 
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
@@ -26,6 +26,12 @@ models_implemented = {
     'fcn_resnet101': torchvision.models.segmentation.fcn_resnet101,
     'deeplabv3_mobilenet_v3_large': torchvision.models.segmentation.deeplabv3_mobilenet_v3_large,
     'lraspp_mobilenet_v3_large': torchvision.models.segmentation.lraspp_mobilenet_v3_large,
+}
+
+classifier_init = {
+    'xavier': xavier_init,
+    'kaiming': kaiming_init,
+    'mib': mib_init,
 }
 
 
@@ -116,13 +122,9 @@ def build_model(params):
         model_new.load_state_dict(state_dict)
         del state_dict
     elif params['stage'] > 0 and os.path.exists(old_pth):
-        state_dict = torch.load(old_pth, 'cpu')
-        _cur_dict = model_new.state_dict()
-        # 模型输出层的特征进行修改
-        state_dict['classifier.4.weight'] = _cur_dict['classifier.4.weight']
-        state_dict['classifier.4.bias'] = _cur_dict['classifier.4.bias']
+        init_name = params['classifier_init_method']
+        state_dict = classifier_init[init_name](params, torch.load(old_pth, 'cpu'), num_classes)
         model_new.load_state_dict(state_dict)
-        del state_dict
 
     # Load old model
     model_old = None
@@ -151,18 +153,18 @@ def solve(params):
     set_random_seeds(params['seed'])
 
     # fetch dataset from files
-    datasets = fetch_datasets(params)
-    train, valid, test = load_data(params, *datasets)
+    # datasets = fetch_datasets(params)
+    # train, valid, test = load_data(params, *datasets)
 
     # build model
     new_model, old_model = build_model(params)
 
     # train model
-    trainer = Trainner(params, new_model, old_model, train, valid, test, device)
-    if params['mode'] == 'train':
-        trainer.train()
-    else:
-        trainer.test()
+    # trainer = Trainner(params, new_model, old_model, train, valid, test, device)
+    # if params['mode'] == 'train':
+    #     trainer.train()
+    # else:
+    #     trainer.test()
 
 
 if __name__ == '__main__':
