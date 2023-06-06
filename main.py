@@ -9,7 +9,7 @@ from torch.utils import data
 from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
     RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
-from utils import xavier_init, kaiming_init, mib_init
+from utils import xavier_init, kaiming_init, mib_init, Trainner
 from utils.config import Config
 
 mean = [0.485, 0.456, 0.406]
@@ -153,18 +153,18 @@ def solve(params):
     set_random_seeds(params['seed'])
 
     # fetch dataset from files
-    # datasets = fetch_datasets(params)
-    # train, valid, test = load_data(params, *datasets)
+    datasets = fetch_datasets(params)
+    train, valid, test = load_data(params, *datasets)
 
     # build model
     new_model, old_model = build_model(params)
 
     # train model
-    # trainer = Trainner(params, new_model, old_model, train, valid, test, device)
-    # if params['mode'] == 'train':
-    #     trainer.train()
-    # else:
-    #     trainer.test()
+    trainer = Trainner(params, new_model, old_model, train, valid, test, device)
+    if params['mode'] == 'train':
+        trainer.train()
+    else:
+        trainer.test()
 
 
 if __name__ == '__main__':

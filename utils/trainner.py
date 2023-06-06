@@ -101,6 +101,8 @@ class Trainner:
 
     def _test_model(self, dataset):
         self.new_model.eval()
+        if self.old_model is not None:
+            self.old_model.eval()
         loss_item = []
         with torch.no_grad():
             for img, msk in tqdm(dataset):
