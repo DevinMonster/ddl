@@ -8,6 +8,7 @@ from tqdm import tqdm
 from datasets import classes_per_task
 from utils import CSSMetrics
 from utils.loss import MiBLoss, CrossEntropyLoss
+from torch.utils.tensorboard import SummaryWriter
 
 losses = {
     'CE': CrossEntropyLoss,
@@ -40,6 +41,7 @@ class Trainner:
         old_cls = n_classes - cls[-1]
         self.loss = losses[params['loss']](old_cls)
         self.metrics = CSSMetrics(n_classes)
+        self.writer = SummaryWriter(params['path_tb'])
 
     def train(self):
         if self.old_model is not None:
@@ -49,10 +51,10 @@ class Trainner:
         # start training
         print("Training start...")
         metrics = f"hyper-parameters:\n {self.params}\n"
-        for epoch in range(1, self.epochs + 1):
+        for epoch in range(0, self.epochs):
             self.new_model.train()
             train_losses = []
-            for img, msk in tqdm(self.train_ds):
+            for i, (img, msk) in enumerate(tqdm(self.train_ds)):
                 img = img.to(self.device)
                 msk = msk.to(self.device)
                 y_new = self.new_model(img)['out']
@@ -62,6 +64,7 @@ class Trainner:
                 l.backward()
                 self.optimizer.step()
                 train_losses.append(l.item())
+                self.writer.add_scalar("Loss/train", l.item(), epoch * len(self.train_ds) + i + 1)
             self.scheduler.step()
             if train_losses:
                 train_loss = np.sum(train_losses) / len(train_losses)
@@ -72,7 +75,7 @@ class Trainner:
             if float(cur_res['Mean IoU']) > mIOU_best:
                 mIOU_best = float(cur_res['Mean IoU'])
                 best_model_dict = self.new_model.state_dict()
-            metrics += f"epoch: {epoch} \n" + str(cur_res) + "\n"
+            metrics += f"epoch: {epoch + 1} \n" + str(cur_res) + "\n"
 
         print("train step finished, start saving best model..")
         params = self.params
@@ -97,15 +100,15 @@ class Trainner:
 
     def test(self):
         print("Start testing...")
-        return self._test_model(self.test_ds)
+        return self._test_model(self.test_ds, False)
 
-    def _test_model(self, dataset):
+    def _test_model(self, dataset, valid=True):
         self.new_model.eval()
         if self.old_model is not None:
             self.old_model.eval()
         loss_item = []
         with torch.no_grad():
-            for img, msk in tqdm(dataset):
+            for i, (img, msk) in enumerate(tqdm(dataset)):
                 img = img.to(self.device)
                 msk = msk.to(self.device)
                 y_new = self.new_model(img)['out']
@@ -114,8 +117,14 @@ class Trainner:
                 l = self.loss(y_new, msk, y_old)
                 loss_item.append(l.item())
                 self.metrics.update(msk.cpu().numpy(), y_pred.cpu().numpy())
+                res = self.metrics.get_results()
+                s1, s2 = "Loss/valid", "mIOU/valid"
+                if not valid:
+                    s1, s2 = "Loss/test", "mIOU/test"
+                self.writer.add_scalar(s1, l.item(), i)
+                self.writer.add_scalar(s2, res['Mean IoU'])
         res = self.metrics.get_results()
-        if len(loss_item) > 0:
+        if loss_item:
             res['Avg Loss'] = np.sum(loss_item) / len(loss_item)
         self.metrics.reset()
         torch.cuda.empty_cache()
