@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import torch.optim
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
+from utils.scheduler import PolyLR, StepLR, CosineAnnealingLR
 from tqdm import tqdm
 
 from datasets import classes_per_task
@@ -32,23 +32,25 @@ class Trainner:
         self.scheduler = StepLR(self.optimizer, 5000, 0.1)
         if params['lr_policy'] == 'cos':
             self.scheduler = CosineAnnealingLR(self.optimizer, self.epochs)
+        elif params['lr_policy'] == 'poly':
+            self.scheduler = PolyLR(self.optimizer, params['epochs'] * len(train), params['lr_power'])
+
         cls = classes_per_task(params['dataset'], params['task'], params['stage'])
         n_classes = sum(cls)
-        old_cls = 0
-        if params['stage'] > 0: old_cls = n_classes - cls[-1]
+        old_cls = n_classes - cls[-1]
         self.loss = losses[params['loss']](old_cls)
         self.metrics = CSSMetrics(n_classes)
 
     def train(self):
-        self.new_model.train()
         if self.old_model is not None:
             self.old_model.eval()
 
-        best_model_dict, mIOU = self.new_model.state_dict(), 0
+        best_model_dict, mIOU_best = self.new_model.state_dict(), 0
         # start training
         print("Training start...")
-        metrics = ""
+        metrics = f"hyper-parameters:\n {self.params}\n"
         for epoch in range(1, self.epochs + 1):
+            self.new_model.train()
             train_losses = []
             for img, msk in tqdm(self.train_ds):
                 img = img.to(self.device)
@@ -67,8 +69,8 @@ class Trainner:
 
             cur_res = self.valid()
             # update best model
-            if float(cur_res['Mean IoU']) > mIOU:
-                mIOU = float(cur_res['Mean IoU'])
+            if float(cur_res['Mean IoU']) > mIOU_best:
+                mIOU_best = float(cur_res['Mean IoU'])
                 best_model_dict = self.new_model.state_dict()
             metrics += f"epoch: {epoch} \n" + str(cur_res) + "\n"
 
@@ -98,6 +100,7 @@ class Trainner:
         return self._test_model(self.test_ds)
 
     def _test_model(self, dataset):
+        self.new_model.eval()
         loss_item = []
         with torch.no_grad():
             for img, msk in tqdm(dataset):
@@ -113,4 +116,5 @@ class Trainner:
         if len(loss_item) > 0:
             res['Avg Loss'] = np.sum(loss_item) / len(loss_item)
         self.metrics.reset()
+        torch.cuda.empty_cache()
         return res
