@@ -4,7 +4,7 @@
 seed: 1999
 
 # mode: "train", "test"
-mode: 'test'
+mode: 'train'
 
 # dataset: voc,..., see more details in main.py 'models_implemented'
 dataset: 'voc'

@@ -153,19 +153,18 @@ def solve(params):
     set_random_seeds(params['seed'])
 
     # fetch dataset from files
-    # datasets = fetch_datasets(params)
-    # train, valid, test = load_data(params, *datasets)
+    datasets = fetch_datasets(params)
+    train, valid, test = load_data(params, *datasets)
 
     # build model
     new_model, old_model = build_model(params)
-    print(new_model.state_dict().keys())
 
     # train model
-    # trainer = Trainner(params, new_model, old_model, train, valid, test, device)
-    # if params['mode'] == 'train':
-    #     trainer.train()
-    # else:
-    #     trainer.test()
+    trainer = Trainner(params, new_model, old_model, train, valid, test, device)
+    if params['mode'] == 'train':
+        trainer.train()
+    else:
+        trainer.test()
 
 
 if __name__ == '__main__':

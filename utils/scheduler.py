@@ -1,7 +1,7 @@
-from torch.optim.lr_scheduler import LRScheduler, StepLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import _LRScheduler, StepLR, CosineAnnealingLR
 
 
-class PolyLR(LRScheduler):
+class PolyLR(_LRScheduler):
     def __init__(self, optimizer, max_iters, power=0.9, last_epoch=-1):
         self.power = power
         self.max_iters = max_iters
