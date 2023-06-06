@@ -42,8 +42,11 @@ epochs: 30
 # learning rate of model
 lr: 0.002
 
-# learning rate policy ‘cos', 'step'
-lr_policy: 'cos'
+# learning rate policy ‘cos', 'step', 'poly'
+lr_policy: 'poly'
+
+# learning rate decreasing power of lr_policy='poly'
+lr_power: 0.9
 
 # do we have checkpoint in current stage
 checkpoint: false
@@ -54,8 +57,14 @@ loss: 'MiB'
 # weight decay
 weight_decay: 0.0001
 
-# resize the input picture size
+# resize the input picture and mask to cropped_size
 cropped_size: 512
 
 # mode: "train", "test"
 mode: 'test'
+
+# classifier name
+classifier_name: 'classifier.4'
+
+# classifier init method 'kaiming', 'xavier', 'mib'
+classifier_init_method: 'mib'
