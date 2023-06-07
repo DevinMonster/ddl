@@ -149,7 +149,9 @@ class Trainner:
 
     def test(self):
         print("Start testing...")
-        return self._test_model(self.test_ds, False)
+        res = self._test_model(self.test_ds, False)
+        print(res)
+        return res
 
     def _test_model(self, dataset, valid=True):
         self.new_model.eval()

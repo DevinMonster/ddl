@@ -8,9 +8,10 @@ class CrossEntropyLoss(nn.Module):
     traditional CELoss for multi-class classify
     '''
 
-    def __init__(self, reduction='mean'):
+    def __init__(self, reduction='mean', ignore_index=255):
         super().__init__()
         self.reduction = reduction
+        self.ignore_index = ignore_index
 
     def forward(self, x, y):
         '''
@@ -18,7 +19,7 @@ class CrossEntropyLoss(nn.Module):
         :param y: true label with shape {B,H,W}
         '''
         return F.nll_loss(F.log_softmax(x, dim=1), y,
-                          reduction=self.reduction)
+                          reduction=self.reduction, ignore_index=self.ignore_index)
 
 
 class UnbiasedCrossEntropyLoss(nn.Module):

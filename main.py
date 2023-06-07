@@ -168,6 +168,7 @@ def solve(params):
         trainer.test()
 
 
+
 if __name__ == '__main__':
     config = Config("./parameter.yaml")
     solve(config.param)
