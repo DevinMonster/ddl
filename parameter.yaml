@@ -4,9 +4,9 @@
 seed: 1999
 
 # mode: "train", "test"
-mode: 'test'
+mode: 'train'
 # do we have checkpoint in current stage
-checkpoint: true
+checkpoint: false
 
 
 # dataset: voc,..., see more details in main.py 'models_implemented'
