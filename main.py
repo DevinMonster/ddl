@@ -125,6 +125,7 @@ def build_model(params):
     elif params['stage'] > 0 and os.path.exists(old_pth):
         init_name = params['classifier_init_method']
         state_dict = classifier_init[init_name](params, torch.load(old_pth, 'cpu'), num_classes)
+        print(f"init by {init_name}!")
         model_new.load_state_dict(state_dict)
 
     # Load old model
@@ -166,7 +167,6 @@ def solve(params):
         trainer.train()
     else:
         trainer.test()
-
 
 
 if __name__ == '__main__':

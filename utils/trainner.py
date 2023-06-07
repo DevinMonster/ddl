@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from datasets import classes_per_task
 from utils import CSSMetrics
-from utils.loss import CrossEntropyLoss, LocalPODLoss
+from utils.loss import CrossEntropyLoss, LocalPODLoss, UnbiasedCrossEntropyLoss
 from utils.scheduler import PolyLR, StepLR, CosineAnnealingLR
 
 features_name = {
@@ -67,7 +67,7 @@ class Trainner:
         cls = classes_per_task(params['dataset'], params['task'], params['stage'])
         n_classes = sum(cls)
         self.distil = LocalPODLoss(params['scale'], params['alpha'])
-        self.ce = CrossEntropyLoss()
+        self.ce = UnbiasedCrossEntropyLoss(n_classes - cls[-1])
         self.metrics = CSSMetrics(n_classes)
         self.writer = SummaryWriter(params['path_tb'])
         self.log_path = f"./log/{params['dataset']}/{params['task']}/"
@@ -104,7 +104,9 @@ class Trainner:
                     msk = pseudo_label(msk, y_old)
                     # 特征POD技术
                     new_f, old_f = self.calc_pod(img)
-                    l = self.ce(y_new, msk) + self.distil(new_f, old_f)
+                    uce, dis = self.ce(y_new, msk), self.distil(new_f, old_f)
+                    l = uce + dis
+                    print(uce, dis)
                 else:
                     l = self.ce(y_new, msk)
 
