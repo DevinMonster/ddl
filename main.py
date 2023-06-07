@@ -9,7 +9,7 @@ from torch.utils import data
 from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
     RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
-from utils import xavier_init, kaiming_init, mib_init, Trainner
+from utils import xavier_init, kaiming_init, mib_init, Trainner, rand_new_init
 from utils.config import Config
 
 mean = [0.485, 0.456, 0.406]
@@ -32,6 +32,7 @@ classifier_init = {
     'xavier': xavier_init,
     'kaiming': kaiming_init,
     'mib': mib_init,
+    'rand_new': rand_new_init,
 }
 
 

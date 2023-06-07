@@ -2,6 +2,8 @@
 
 # random seeds
 seed: 1999
+# do we have checkpoint in current stage
+checkpoint: false
 
 # mode: "train", "test"
 mode: 'train'
@@ -44,16 +46,13 @@ weight_decay: 0.0001
 cropped_size: 512
 # classifier name
 classifier_name: 'classifier.4'
-###
-
-# do we have checkpoint in current stage
-checkpoint: false
 # classifier init method 'kaiming', 'xavier', 'mib'
 classifier_init_method: 'mib'
+###
 
 # path of dataset
 path_dataset: './data/'
 # path of states
-path_state: './states'
+path_state: './states/mib'
 # path of tensorboard
 path_tb: './log/tb'
