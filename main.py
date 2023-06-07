@@ -110,9 +110,10 @@ def build_model(params):
     print(f"classes per task: {num_classes}")
 
     # get path of old and new model
+    init_name = params['classifier_init_method']
     model_path = f"{params['path_state']}/{params['dataset']}/{params['task']}/"
-    new_name = f"{params['backbone']}_{params['stage']}.pth"
-    old_name = f"{params['backbone']}_{params['stage'] - 1}.pth"
+    new_name = f"{params['backbone']}_{params['stage']}_{init_name}.pth"
+    old_name = f"{params['backbone']}_{params['stage'] - 1}_{init_name}.pth"
     new_pth = os.path.join(model_path, new_name)
     old_pth = os.path.join(model_path, old_name)
 
@@ -123,7 +124,6 @@ def build_model(params):
         model_new.load_state_dict(state_dict)
         del state_dict
     elif params['stage'] > 0 and os.path.exists(old_pth):
-        init_name = params['classifier_init_method']
         state_dict = classifier_init[init_name](params, torch.load(old_pth, 'cpu'), num_classes)
         print(f"init by {init_name}!")
         model_new.load_state_dict(state_dict)
