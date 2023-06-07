@@ -2,11 +2,11 @@
 
 # random seeds
 seed: 1999
-# do we have checkpoint in current stage
-checkpoint: false
 
 # mode: "train", "test"
 mode: 'train'
+# do we have checkpoint in current stage
+checkpoint: false
 
 # dataset: voc,..., see more details in main.py 'models_implemented'
 dataset: 'voc'
