@@ -1,7 +1,7 @@
 # DDL-PLOP
 
 **D**evin's **D**eep **L**earning Framework
-实现了PLOP论文的功能
+实现了[PLOP](https://arxiv.org/abs/2011.11390)论文的功能
 
 #### 说明
 
@@ -22,6 +22,7 @@
    + ```tqdm==4.64.0```
    + ```matplotlib==3.5.3```
    + ```PyYAML==6.0```
+   + ```tensorboard```
 3. 安装好git后，使用如下命令克隆项目到本地（远端服务器）
    + 国内：```git clone -b 分支名(main\MiB\PLOP) https://gitee.com/devinmonster/ddl.git```
    + 国际：```git clone -b 分支名(main\MiB\PLOP) https://github.com/DevinMonster/ddl.git```
