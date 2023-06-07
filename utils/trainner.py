@@ -85,9 +85,9 @@ class Trainner:
         if self.old_model is not None:
             self.old_model.eval()
 
-        best_model_dict, mIOU_best = self.new_model.state_dict(), 0
         # start training
         print("Training start...")
+        best_model_dict, mIOU_best = self.new_model.state_dict(), 0
         metrics = f"hyper-parameters:\n {self.params}\n"
         for epoch in range(0, self.epochs):
             self.new_model.train()
@@ -98,6 +98,7 @@ class Trainner:
                 y_new = self.new_model(img)['out']
                 y_old = None if self.old_model is None else self.old_model(img)['out']
 
+                # PLOP改进
                 if self.old_model is not None:
                     # 伪标签技术
                     msk = pseudo_label(msk, y_old)
@@ -111,11 +112,11 @@ class Trainner:
                 l.backward()
                 self.optimizer.step()
                 train_losses.append(l.item())
-                self.writer.add_scalar("Loss/train", l.item(), epoch * len(self.train_ds) + i + 1)
+                self.writer.add_scalar("Loss/train", l.item())
             self.scheduler.step()
             if train_losses:
                 train_loss = np.sum(train_losses) / len(train_losses)
-                print(f"current loss: {train_loss:.5f}")
+                print(f"epoch {epoch + 1} loss: {train_loss:.5f}")
 
             cur_res = self.valid()
             # update best model
@@ -176,7 +177,7 @@ class Trainner:
                 s1, s2 = "Loss/valid", "mIOU/valid"
                 if not valid:
                     s1, s2 = "Loss/tests", "mIOU/tests"
-                self.writer.add_scalar(s1, l.item(), i)
+                self.writer.add_scalar(s1, l.item())
                 self.writer.add_scalar(s2, res['Mean IoU'])
         res = self.metrics.get_results()
         if loss_item:
