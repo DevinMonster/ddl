@@ -41,7 +41,14 @@ class Trainner:
         old_cls = n_classes - cls[-1]
         self.loss = losses[params['loss']](old_cls)
         self.metrics = CSSMetrics(n_classes)
+        # 日志记录相关
         self.writer = SummaryWriter(params['path_tb'])
+        self.log_path = f"./log/{params['dataset']}/{params['task']}/"
+        self.log_name = f"{params['backbone']}_{params['stage']}_{params['classifier_init_method']}.txt"
+        self.model_dict_path = f"./states/{params['dataset']}/{params['task']}/"
+        self.model_dict_name = f"{params['backbone']}_{params['stage']}_{params['classifier_init_method']}.pth"
+        self.model_pth = os.path.join(self.model_dict_path, self.model_dict_name)
+        self.log_pth = os.path.join(self.log_path, self.log_name)
 
     def train(self):
         if self.old_model is not None:
@@ -51,7 +58,7 @@ class Trainner:
         # start training
         print("Training start...")
         metrics = f"hyper-parameters:\n {self.params}\n"
-        for epoch in range(0, self.epochs):
+        for epoch in range(self.epochs):
             self.new_model.train()
             train_losses = []
             for i, (img, msk) in enumerate(tqdm(self.train_ds)):
@@ -64,11 +71,11 @@ class Trainner:
                 l.backward()
                 self.optimizer.step()
                 train_losses.append(l.item())
-                self.writer.add_scalar("Loss/train", l.item(), epoch * len(self.train_ds) + i + 1)
+                self.writer.add_scalar("Loss/train", l.item())
             self.scheduler.step()
             if train_losses:
                 train_loss = np.sum(train_losses) / len(train_losses)
-                print(f"current loss: {train_loss:.5f}")
+                print(f"epoch {epoch + 1} current loss: {train_loss:.4f}")
 
             cur_res = self.valid()
             # update best model
@@ -78,20 +85,15 @@ class Trainner:
             metrics += f"epoch: {epoch + 1} \n" + str(cur_res) + "\n"
 
         print("train step finished, start saving best model..")
-        params = self.params
-        model_dict_path = f"./states/{params['dataset']}/{params['task']}/"
-        model_dict_name = f"{params['backbone']}_{params['stage']}.pth"
-        log_path = f"./log/{params['dataset']}/{params['task']}/"
-        log_name = f"{params['backbone']}_{params['stage']}.txt"
-        os.makedirs(model_dict_path, exist_ok=True)
-        os.makedirs(log_path, exist_ok=True)
-        torch.save(best_model_dict, os.path.join(model_dict_path, model_dict_name))
-        print(f"best model state saved to: {os.path.join(model_dict_path, model_dict_name)}")
+        os.makedirs(self.model_dict_path, exist_ok=True)
+        os.makedirs(self.log_path, exist_ok=True)
+        torch.save(best_model_dict, self.model_pth)
+        print(f"best model state saved to: {self.model_pth}")
 
         metrics += f"Test result:\n {str(self.test())}\n"
 
         print("Saving logs...")
-        with open(os.path.join(log_path, log_name), "w") as f:
+        with open(self.log_pth, "w") as f:
             f.write(metrics)
         print("Log saved!")
 
@@ -121,7 +123,7 @@ class Trainner:
                 s1, s2 = "Loss/valid", "mIOU/valid"
                 if not valid:
                     s1, s2 = "Loss/test", "mIOU/test"
-                self.writer.add_scalar(s1, l.item(), i)
+                self.writer.add_scalar(s1, l.item())
                 self.writer.add_scalar(s2, res['Mean IoU'])
         res = self.metrics.get_results()
         if loss_item:

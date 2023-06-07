@@ -1,6 +1,7 @@
-# DDL
+# DDL-MiB
 
-**D**evin's **D**eep **L**earning Framework
+**D**evin's **D**eep **L**earning Framework实现了[MiB](https://arxiv.org/abs/2002.00718)相关算法
+
 
 #### 说明
 
