@@ -48,7 +48,7 @@ classifier_name: 'classifier.4'
 
 # do we have checkpoint in current stage
 checkpoint: false
-# classifier init method 'kaiming', 'xavier', 'mib'
+# classifier init method 'kaiming', 'xavier', 'mib', 'rand_new'
 classifier_init_method: 'mib'
 
 # path of dataset

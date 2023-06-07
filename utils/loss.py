@@ -79,7 +79,6 @@ class UnbiasedKDLoss(nn.Module):
         self.alpha = alpha
 
     def forward(self, inputs, targets, mask=None):
-
         new_cl = inputs.shape[1] - targets.shape[1]
 
         targets = targets * self.alpha
@@ -105,6 +104,50 @@ class UnbiasedKDLoss(nn.Module):
             outputs = -loss
 
         return outputs
+
+
+class LocalPODLoss(nn.Module):
+    '''
+    direct implementation of Local POD Distillation loss
+    '''
+
+    def __init__(self, S=2, alpha=1.):
+        super().__init__()
+        self.S = S
+        self.alpha = alpha
+
+    @staticmethod
+    def POD(x, w, h):
+        left = torch.sum(x, dim=2)
+        right = torch.sum(x, dim=3)
+        return torch.cat([left / w, right / h], dim=1)
+
+    def local_pod(self, h_n, h_o):
+        W, H = h_n.shape[-2], h_n.shape[-1]
+        P_n, P_o = None, None
+        d = 1
+        for s in range(self.S):
+            w, h = W // d, H // d
+            if w == 0 or h == 0: break
+            for i in range(0, W - w):
+                for j in range(0, H - h):
+                    p_n = self.POD(h_n[:, :, i:i + w, j:j + h], w, h)
+                    p_o = self.POD(h_o[:, :, i:i + w, j:j + h], w, h)
+                    if P_n is None:
+                        P_o, P_n = p_o, p_n
+                    else:
+                        P_o = torch.cat([P_o, p_o], dim=1)
+                        P_n = torch.cat([P_n, p_n], dim=1)
+            d *= 2
+        return torch.norm(P_n - P_o, 2)
+
+    def forward(self, new_f, old_f):
+        loss = torch.tensor(1e-6)
+        for key in new_f.keys():
+            h_n = new_f[key]
+            h_o = old_f[key]
+            loss += self.local_pod(h_n, h_o)
+        return self.alpha * loss / (len(new_f) + 1)
 
 
 class MiBLoss(nn.Module):

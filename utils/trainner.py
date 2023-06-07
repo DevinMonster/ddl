@@ -2,18 +2,46 @@ import os
 
 import numpy as np
 import torch.optim
-from utils.scheduler import PolyLR, StepLR, CosineAnnealingLR
+from torch.utils.tensorboard import SummaryWriter
+from torchvision.models.feature_extraction import create_feature_extractor
 from tqdm import tqdm
 
 from datasets import classes_per_task
 from utils import CSSMetrics
-from utils.loss import MiBLoss, CrossEntropyLoss
-from torch.utils.tensorboard import SummaryWriter
+from utils.loss import CrossEntropyLoss, LocalPODLoss
+from utils.scheduler import PolyLR, StepLR, CosineAnnealingLR
 
-losses = {
-    'CE': CrossEntropyLoss,
-    'MiB': MiBLoss,
+features_name = {
+    'deeplabv3_resnet50': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
+                           'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+    'deeplabv3_resnet101': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
+                            'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+    'fcn_resnet50': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
+                     'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+    'fcn_resnet101': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
+                      'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+    'deeplabv3_mobilenet_v3_large': ['backbone.0', 'backbone.1', 'backbone.10', 'backbone.11', 'backbone.12',
+                                     'backbone.13', 'backbone.14',
+                                     'backbone.15', 'backbone.16', 'backbone.2', 'backbone.3', 'backbone.4',
+                                     'backbone.5', 'backbone.6',
+                                     'backbone.7', 'backbone.8', 'backbone.9', 'classifier.0', 'classifier.1',
+                                     'classifier.2', 'classifier.3',
+                                     'classifier.4'],
+    'lraspp_mobilenet_v3_large': ['backbone.0', 'backbone.1', 'backbone.10', 'backbone.11', 'backbone.12',
+                                  'backbone.13', 'backbone.14', 'backbone.15', 'backbone.16', 'backbone.2',
+                                  'backbone.3', 'backbone.4', 'backbone.5', 'backbone.6', 'backbone.7', 'backbone.8',
+                                  'backbone.9', 'classifier.add', 'classifier.cbr', 'classifier.getattr',
+                                  'classifier.getitem', 'classifier.high_classifier', 'classifier.interpolate',
+                                  'classifier.low_classifier', 'classifier.mul', 'classifier.scale'],
+
 }
+
+
+def pseudo_label(msk, y_old):
+    idx = msk == 0
+    y_pred = torch.argmax(y_old, dim=1)
+    msk[idx] = y_pred[idx]
+    return msk
 
 
 class Trainner:
@@ -38,10 +66,20 @@ class Trainner:
 
         cls = classes_per_task(params['dataset'], params['task'], params['stage'])
         n_classes = sum(cls)
-        old_cls = n_classes - cls[-1]
-        self.loss = losses[params['loss']](old_cls)
+        self.distil = LocalPODLoss(params['scale'], params['alpha'])
+        self.ce = CrossEntropyLoss()
         self.metrics = CSSMetrics(n_classes)
         self.writer = SummaryWriter(params['path_tb'])
+        self.log_path = f"./log/{params['dataset']}/{params['task']}/"
+        self.log_name = f"{params['backbone']}_{params['stage']}_{params['classifier_init_method']}.txt"
+        self.model_dict_path = f"./states/{params['dataset']}/{params['task']}/"
+        self.model_dict_name = f"{params['backbone']}_{params['stage']}_{params['classifier_init_method']}.pth"
+        self.model_pth = os.path.join(self.model_dict_path, self.model_dict_name)
+        self.log_pth = os.path.join(self.log_path, self.log_name)
+        # 特征POD使用
+        self.feature_extractor_new = create_feature_extractor(self.new_model, features_name[params['backbone']])
+        if self.old_model is not None:
+            self.feature_extractor_old = create_feature_extractor(self.old_model, features_name[params['backbone']])
 
     def train(self):
         if self.old_model is not None:
@@ -59,7 +97,16 @@ class Trainner:
                 msk = msk.to(self.device)
                 y_new = self.new_model(img)['out']
                 y_old = None if self.old_model is None else self.old_model(img)['out']
-                l = self.loss(y_new, msk, y_old)
+
+                if self.old_model is not None:
+                    # 伪标签技术
+                    msk = pseudo_label(msk, y_old)
+                    # 特征POD技术
+                    new_f, old_f = self.calc_pod(img)
+                    l = self.ce(y_new, msk) + self.distil(new_f, old_f)
+                else:
+                    l = self.ce(y_new, msk)
+
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
@@ -78,22 +125,23 @@ class Trainner:
             metrics += f"epoch: {epoch + 1} \n" + str(cur_res) + "\n"
 
         print("train step finished, start saving best model..")
-        params = self.params
-        model_dict_path = f"./states/{params['dataset']}/{params['task']}/"
-        model_dict_name = f"{params['backbone']}_{params['stage']}.pth"
-        log_path = f"./log/{params['dataset']}/{params['task']}/"
-        log_name = f"{params['backbone']}_{params['stage']}.txt"
-        os.makedirs(model_dict_path, exist_ok=True)
-        os.makedirs(log_path, exist_ok=True)
-        torch.save(best_model_dict, os.path.join(model_dict_path, model_dict_name))
-        print(f"best model state saved to: {os.path.join(model_dict_path, model_dict_name)}")
+        os.makedirs(self.model_dict_path, exist_ok=True)
+        os.makedirs(self.log_path, exist_ok=True)
+        torch.save(best_model_dict, self.model_pth)
+        print(f"best model state saved to: {self.model_pth}")
 
         metrics += f"Test result:\n {str(self.test())}\n"
 
         print("Saving logs...")
-        with open(os.path.join(log_path, log_name), "w") as f:
+        with open(self.log_pth, "w") as f:
             f.write(metrics)
         print("Log saved!")
+
+    def calc_pod(self, imgs):
+        if self.old_model is None: return None
+        new_f = self.feature_extractor_new(imgs)
+        old_f = self.feature_extractor_old(imgs)
+        return new_f, old_f
 
     def valid(self):
         return self._test_model(self.valid_ds)
@@ -114,13 +162,20 @@ class Trainner:
                 y_new = self.new_model(img)['out']
                 y_old = None if self.old_model is None else self.old_model(img)['out']
                 y_pred = torch.argmax(y_new, dim=1)
-                l = self.loss(y_new, msk, y_old)
+                if self.old_model is not None:
+                    # 伪标签技术
+                    msk = pseudo_label(msk, y_old)
+                    # 特征POD技术
+                    new_f, old_f = self.calc_pod(img)
+                    l = self.ce(y_new, msk) + self.distil(new_f, old_f)
+                else:
+                    l = self.ce(y_new, msk)
                 loss_item.append(l.item())
                 self.metrics.update(msk.cpu().numpy(), y_pred.cpu().numpy())
                 res = self.metrics.get_results()
                 s1, s2 = "Loss/valid", "mIOU/valid"
                 if not valid:
-                    s1, s2 = "Loss/test", "mIOU/test"
+                    s1, s2 = "Loss/tests", "mIOU/tests"
                 self.writer.add_scalar(s1, l.item(), i)
                 self.writer.add_scalar(s2, res['Mean IoU'])
         res = self.metrics.get_results()
