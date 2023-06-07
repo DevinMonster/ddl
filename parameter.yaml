@@ -53,6 +53,6 @@ classifier_init_method: 'mib'
 # path of dataset
 path_dataset: './data/'
 # path of states
-path_state: './states/mib'
+path_state: './states'
 # path of tensorboard
 path_tb: './log/tb'
