@@ -1,6 +1,7 @@
-# DDL
+# DDL-PLOP
 
 **D**evin's **D**eep **L**earning Framework
+实现了PLOP论文的功能
 
 #### 说明
 
