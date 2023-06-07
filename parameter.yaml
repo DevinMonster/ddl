@@ -5,6 +5,9 @@ seed: 1999
 
 # mode: "train", "test"
 mode: 'train'
+# do we have checkpoint in current stage
+checkpoint: false
+
 
 # dataset: voc,..., see more details in main.py 'models_implemented'
 dataset: 'voc'
@@ -36,24 +39,23 @@ lr: 0.01
 lr_policy: 'poly'
 # learning rate decreasing power of lr_policy='poly'
 lr_power: 0.9
-# loss 'MiB', 'CE'
-loss: 'MiB'
 # weight decay
 weight_decay: 0.0001
 # resize the input picture and mask to cropped_size
 cropped_size: 512
 # classifier name
 classifier_name: 'classifier.4'
-###
-
-# do we have checkpoint in current stage
-checkpoint: false
+# scale of local pod
+scale: 2
+# alpha of distillation loss
+alpha: 1.0
 # classifier init method 'kaiming', 'xavier', 'mib', 'rand_new'
 classifier_init_method: 'mib'
+###
 
 # path of dataset
 path_dataset: './data/'
 # path of states
-path_state: './states'
+path_state: './states/plop'
 # path of tensorboard
 path_tb: './log/tb'
