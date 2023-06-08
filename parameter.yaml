@@ -5,7 +5,7 @@ seed: 1999
 
 # mode: "train", "test"
 mode: 'train'
-# do we have checkpoint in current stage
+# do we have checkpoint in current stage true/false
 checkpoint: false
 
 
@@ -18,7 +18,7 @@ need_download: false
 #  voc: offline, 19-1, 19-1b, 15-5, 15-5s, 10-5-5...
 task: '19-1'
 # stage (see more details in ./datasets/task.py)
-stage: 0
+stage: 1
 
 ### 常用参数
 # make part of train set to be validation set
@@ -26,15 +26,15 @@ partition: true
 # partition ratio
 partition_r: 0.8
 # batch size of one iter
-batch_size: 4
+batch_size: 2
 # num of workers
-num_workers: 4
+num_workers: 1
 # backbone (see more details in dir ./models)
 backbone: 'deeplabv3_resnet101'
 # epochs
 epochs: 30
 # learning rate of model
-lr: 0.01
+lr: 0.001
 # learning rate policy ‘cos', 'step', 'poly'
 lr_policy: 'poly'
 # learning rate decreasing power of lr_policy='poly'

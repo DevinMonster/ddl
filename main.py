@@ -76,17 +76,20 @@ def fetch_datasets(params):
     print("Building datasets...")
     Dataset = increment_datasets[params['dataset']]
     path_dataset = os.path.join(params['path_dataset'], params['dataset'])
-    train_ds = Dataset(path_dataset, is_train=True, download=params['need_download'],
-                       transforms=train_transform, new_labels=new_labels, old_labels=old_labels)
-    if params['partition']:  # use part of train set to be validation set
-        train_len = int(params['partition_r'] * len(train_ds))
-        valid_len = len(train_ds) - train_len
-        train_ds, valid_ds = data.random_split(train_ds, [train_len, valid_len])
+    train_ds, valid_ds, test_ds = None, None, None
+    if params['mode'] == 'train':
+        train_ds = Dataset(path_dataset, is_train=True, download=params['need_download'],
+                           transforms=train_transform, new_labels=new_labels, old_labels=old_labels)
+        if params['partition']:  # use part of train set to be validation set
+            train_len = int(params['partition_r'] * len(train_ds))
+            valid_len = len(train_ds) - train_len
+            train_ds, valid_ds = data.random_split(train_ds, [train_len, valid_len])
+        else:
+            valid_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
+                               transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     else:
-        valid_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                           transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
-    test_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                      transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
+        test_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
+                          transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     print("Datasets build finished!")
     return train_ds, valid_ds, test_ds
 
@@ -95,12 +98,17 @@ def load_data(params, train_ds, valid_ds, test_ds):
     print("Loading Data to dataloader!")
     bs = params['batch_size']
     wkr = params['num_workers']
-    train = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    valid = data.DataLoader(valid_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    test = data.DataLoader(test_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    print(f"train size: {len(train)}, valid size: {len(valid)}, test size: {len(test)}")
+    if train_ds is not None:
+        train_ds = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"train_ds size: {len(train_ds)}")
+    if valid_ds is not None:
+        valid_ds = data.DataLoader(valid_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"valid_ds size: {len(valid_ds)}")
+    if test_ds is not None:
+        test_ds = data.DataLoader(test_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"test_ds size: {len(test_ds)}")
     print("Load data Finished!")
-    return train, valid, test
+    return train_ds, valid_ds, test_ds
 
 
 # build model模块

@@ -63,13 +63,15 @@ class Trainner:
         if params['lr_policy'] == 'cos':
             self.scheduler = CosineAnnealingLR(self.optimizer, self.epochs)
         elif params['lr_policy'] == 'poly':
-            self.scheduler = PolyLR(self.optimizer, params['epochs'] * len(train), params['lr_power'])
+            length = len(train) if train is not None else 1
+            self.scheduler = PolyLR(self.optimizer, params['epochs'] * length, params['lr_power'])
 
         cls = classes_per_task(params['dataset'], params['task'], params['stage'])
         n_classes = sum(cls)
         self.distil = LocalPODLoss(params['scale'], params['alpha'])
         self.ce = UnbiasedCrossEntropyLoss(n_classes - cls[-1])
         self.metrics = CSSMetrics(n_classes)
+        # logger
         self.writer = SummaryWriter(params['path_tb'])
         self.log_path = f"./log/{params['dataset']}/{params['task']}/"
         self.log_name = f"{params['backbone']}_{params['stage']}_{params['classifier_init_method']}.txt"
@@ -100,7 +102,6 @@ class Trainner:
                 with autocast(self.device.type):
                     y_new = self.new_model(img)['out']
                     y_old = None if self.old_model is None else self.old_model(img)['out']
-
                     # PLOP改进
                     if self.old_model is not None:
                         # 伪标签技术
@@ -112,7 +113,6 @@ class Trainner:
                         print(uce, dis)
                     else:
                         l = self.ce(y_new, msk)
-
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
@@ -135,9 +135,6 @@ class Trainner:
         os.makedirs(self.log_path, exist_ok=True)
         torch.save(best_model_dict, self.model_pth)
         print(f"best model state saved to: {self.model_pth}")
-
-        metrics += f"Test result:\n {str(self.test())}\n"
-
         print("Saving logs...")
         with open(self.log_pth, "w") as f:
             f.write(metrics)
@@ -154,41 +151,21 @@ class Trainner:
 
     def test(self):
         print("Start testing...")
-        res = self._test_model(self.test_ds, False)
+        res = self._test_model(self.test_ds)
         print(res)
         return res
 
-    def _test_model(self, dataset, valid=True):
+    def _test_model(self, dataset):
         self.new_model.eval()
-        if self.old_model is not None:
-            self.old_model.eval()
-        loss_item = []
         with torch.no_grad():
             for i, (img, msk) in enumerate(tqdm(dataset)):
                 img = img.to(self.device)
                 msk = msk.to(self.device)
-                y_new = self.new_model(img)['out']
-                y_old = None if self.old_model is None else self.old_model(img)['out']
+                with autocast(self.device.type):
+                    y_new = self.new_model(img)['out']
                 y_pred = torch.argmax(y_new, dim=1)
-                if self.old_model is not None:
-                    # 伪标签技术
-                    msk = pseudo_label(msk, y_old)
-                    # 特征POD技术
-                    new_f, old_f = self.calc_pod(img)
-                    l = self.ce(y_new, msk) + self.distil(new_f, old_f)
-                else:
-                    l = self.ce(y_new, msk)
-                loss_item.append(l.item())
                 self.metrics.update(msk.cpu().numpy(), y_pred.cpu().numpy())
-                res = self.metrics.get_results()
-                s1, s2 = "Loss/valid", "mIOU/valid"
-                if not valid:
-                    s1, s2 = "Loss/tests", "mIOU/tests"
-                self.writer.add_scalar(s1, l.item())
-                self.writer.add_scalar(s2, res['Mean IoU'])
         res = self.metrics.get_results()
-        if loss_item:
-            res['Avg Loss'] = np.sum(loss_item) / len(loss_item)
         self.metrics.reset()
         torch.cuda.empty_cache()
         return res
