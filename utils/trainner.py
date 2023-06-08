@@ -10,6 +10,7 @@ from datasets import classes_per_task
 from utils import CSSMetrics
 from utils.loss import CrossEntropyLoss, LocalPODLoss, UnbiasedCrossEntropyLoss
 from utils.scheduler import PolyLR, StepLR, CosineAnnealingLR
+from torch import autocast
 
 features_name = {
     'deeplabv3_resnet50': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
@@ -95,20 +96,22 @@ class Trainner:
             for i, (img, msk) in enumerate(tqdm(self.train_ds)):
                 img = img.to(self.device)
                 msk = msk.to(self.device)
-                y_new = self.new_model(img)['out']
-                y_old = None if self.old_model is None else self.old_model(img)['out']
+                # amp混合精度
+                with autocast(self.device.type):
+                    y_new = self.new_model(img)['out']
+                    y_old = None if self.old_model is None else self.old_model(img)['out']
 
-                # PLOP改进
-                if self.old_model is not None:
-                    # 伪标签技术
-                    msk = pseudo_label(msk, y_old)
-                    # 特征POD技术
-                    new_f, old_f = self.calc_pod(img)
-                    uce, dis = self.ce(y_new, msk), self.distil(new_f, old_f)
-                    l = uce + dis
-                    print(uce, dis)
-                else:
-                    l = self.ce(y_new, msk)
+                    # PLOP改进
+                    if self.old_model is not None:
+                        # 伪标签技术
+                        msk = pseudo_label(msk, y_old)
+                        # 特征POD技术
+                        new_f, old_f = self.calc_pod(img)
+                        uce, dis = self.ce(y_new, msk), self.distil(new_f, old_f)
+                        l = uce + dis
+                        print(uce, dis)
+                    else:
+                        l = self.ce(y_new, msk)
 
                 self.optimizer.zero_grad()
                 l.backward()
