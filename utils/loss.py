@@ -117,38 +117,49 @@ class LocalPODLoss(nn.Module):
         self.S = S
         self.alpha = alpha
 
-    @staticmethod
-    def POD(x, w, h):
-        left = torch.sum(x, dim=2)
-        right = torch.sum(x, dim=3)
-        return torch.cat([left / w, right / h], dim=1)
+    def phi(self, x, w, h):  # 公式1
+        # x: b, c, w, h
+        # left: b, c, h
+        left = torch.sum(x, dim=-2) / w
+        # right: b, c, w
+        right = torch.sum(x, dim=-1) / h
+        return torch.cat((left, right), dim=-1)
 
-    def local_pod(self, h_n, h_o):
-        W, H = h_n.shape[-2], h_n.shape[-1]
-        P_n, P_o = None, None
-        d = 1
+    def psi_s(self, feature, W, H, w, h):  # 公式3
+        ans = None
+        for i in range(0, W - w, w):
+            for j in range(0, H - h, h):
+                tmp = self.phi(feature[..., i:i + w, j:j + h], w, h)
+                if ans is None:
+                    ans = tmp
+                else:
+                    ans = torch.cat((ans, tmp), dim=-1)
+        return ans
+
+    def psi(self, feature):  # 公式4
+        W, H = feature.shape[-2:]
+        ans = None
         for s in range(self.S):
-            w, h = W // d, H // d
+            w, h = W // (1 << s), H // (1 << s)
             if w == 0 or h == 0: break
-            for i in range(0, W - w):
-                for j in range(0, H - h):
-                    p_n = self.POD(h_n[:, :, i:i + w, j:j + h], w, h)
-                    p_o = self.POD(h_o[:, :, i:i + w, j:j + h], w, h)
-                    if P_n is None:
-                        P_o, P_n = p_o, p_n
-                    else:
-                        P_o = torch.cat([P_o, p_o], dim=1)
-                        P_n = torch.cat([P_n, p_n], dim=1)
-            d *= 2
-        return torch.norm(P_n - P_o, 2)
+            tmp = self.psi_s(feature, W, H, w, h)
+            if ans is None:
+                ans = tmp
+            else:
+                ans = torch.cat((ans, tmp), dim=1)
+        return ans
 
-    def forward(self, new_f, old_f):
-        loss = torch.tensor(1e-6)
-        for key in new_f.keys():
-            h_n = new_f[key]
-            h_o = old_f[key]
-            loss += self.local_pod(h_n, h_o)
-        return self.alpha * loss / (len(new_f) + 1)
+    def forward(self, new_features, old_features, shape):  # 公式5
+        assert len(new_features) > 0, "num of features must greater than 0"
+        assert sorted(new_features.keys()) == sorted(old_features.keys()), "features must be same!"
+        loss = 1e-6
+        for key in new_features.keys():
+            f_n = F.interpolate(new_features[key], shape[-2:], mode='bilinear')
+            f_o = F.interpolate(old_features[key], shape[-2:], mode='bilinear')
+            p_n = self.psi(f_n)
+            p_o = self.psi(f_o)
+            loss += torch.norm(p_n - p_o, 2)
+        return loss / len(new_features)
 
 
 class MiBLoss(nn.Module):

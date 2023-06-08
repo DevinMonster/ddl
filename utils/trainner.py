@@ -14,33 +14,31 @@ from torch import autocast
 
 features_name = {
     'deeplabv3_resnet50': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                           'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+                           'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
     'deeplabv3_resnet101': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                            'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+                            'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
     'fcn_resnet50': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                     'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+                     'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
     'fcn_resnet101': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                      'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3', 'classifier.4'],
+                      'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
     'deeplabv3_mobilenet_v3_large': ['backbone.0', 'backbone.1', 'backbone.10', 'backbone.11', 'backbone.12',
                                      'backbone.13', 'backbone.14',
                                      'backbone.15', 'backbone.16', 'backbone.2', 'backbone.3', 'backbone.4',
                                      'backbone.5', 'backbone.6',
                                      'backbone.7', 'backbone.8', 'backbone.9', 'classifier.0', 'classifier.1',
-                                     'classifier.2', 'classifier.3',
-                                     'classifier.4'],
+                                     'classifier.2', 'classifier.3'],
     'lraspp_mobilenet_v3_large': ['backbone.0', 'backbone.1', 'backbone.10', 'backbone.11', 'backbone.12',
                                   'backbone.13', 'backbone.14', 'backbone.15', 'backbone.16', 'backbone.2',
                                   'backbone.3', 'backbone.4', 'backbone.5', 'backbone.6', 'backbone.7', 'backbone.8',
-                                  'backbone.9', 'classifier.add', 'classifier.cbr', 'classifier.getattr',
-                                  'classifier.getitem', 'classifier.high_classifier', 'classifier.interpolate',
-                                  'classifier.low_classifier', 'classifier.mul', 'classifier.scale'],
+                                  'backbone.9'],
 
 }
 
 
 def pseudo_label(msk, y_old):
     idx = msk == 0
-    y_pred = torch.argmax(y_old, dim=1)
+    prob = torch.softmax(y_old, dim=1)
+    y_pred = torch.argmax(prob, dim=1)
     msk[idx] = y_pred[idx]
     return msk
 
@@ -101,16 +99,16 @@ class Trainner:
                 # amp混合精度
                 with autocast(self.device.type):
                     y_new = self.new_model(img)['out']
-                    y_old = None if self.old_model is None else self.old_model(img)['out']
                     # PLOP改进
                     if self.old_model is not None:
+                        y_old = self.old_model(img)['out']
                         # 伪标签技术
                         msk = pseudo_label(msk, y_old)
+                    if self.old_model is not None:
                         # 特征POD技术
                         new_f, old_f = self.calc_pod(img)
-                        uce, dis = self.ce(y_new, msk), self.distil(new_f, old_f)
+                        uce, dis = self.ce(y_new, msk), self.distil(new_f, old_f, img.shape)
                         l = uce + dis
-                        print(uce, dis)
                     else:
                         l = self.ce(y_new, msk)
                 self.optimizer.zero_grad()
