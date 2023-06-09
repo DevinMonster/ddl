@@ -117,47 +117,32 @@ class LocalPODLoss(nn.Module):
         self.S = S
         self.alpha = alpha
 
-    def phi(self, x, w, h):  # 公式1
-        # x: b, c, w, h
-        # left: b, c, h
-        left = torch.sum(x, dim=-2) / w
-        # right: b, c, w
-        right = torch.sum(x, dim=-1) / h
-        return torch.cat((left, right), dim=-1)
-
-    def psi_s(self, feature, W, H, w, h):  # 公式3
-        ans = None
-        for i in range(0, W - w, w):
-            for j in range(0, H - h, h):
-                tmp = self.phi(feature[..., i:i + w, j:j + h], w, h)
-                if ans is None:
-                    ans = tmp
-                else:
-                    ans = torch.cat((ans, tmp), dim=-1)
-        return ans
-
-    def psi(self, feature):  # 公式4
-        W, H = feature.shape[-2:]
-        ans = None
+    def _local_pod(self, f, normal=False):
+        b = f.shape[0]
+        W = f.shape[-1]
+        emb = []
         for s in range(self.S):
-            w, h = W // (1 << s), H // (1 << s)
-            if w == 0 or h == 0: break
-            tmp = self.psi_s(feature, W, H, w, h)
-            if ans is None:
-                ans = tmp
-            else:
-                ans = torch.cat((ans, tmp), dim=1)
-        return ans
+            w = W // (2 ** s)
+            for i in range(s):
+                for j in range(s):
+                    sub_f = f[..., i * w:(i + 1):w, j * w:(j + 1) * w]
+                    hor = sub_f.mean(dim=-1).view(b, -1)
+                    ver = sub_f.mean(dim=-2).view(b, -1)
+                    if normal:
+                        hor = F.normalize(hor, dim=1)
+                        ver = F.normalize(ver, dim=1)
+                    emb.extend([hor, ver])
+        return torch.cat(emb, dim=1)
 
     def forward(self, new_features, old_features, shape):  # 公式5
         assert len(new_features) > 0, "num of features must greater than 0"
         assert sorted(new_features.keys()) == sorted(old_features.keys()), "features must be same!"
         loss = 1e-6
         for key in new_features.keys():
-            f_n = F.interpolate(new_features[key], shape[-2:], mode='bilinear')
+            f_n = F.interpolate(new_features[key].cpu(), shape[-2:], mode='bilinear')
             f_o = F.interpolate(old_features[key], shape[-2:], mode='bilinear')
-            p_n = self.psi(f_n)
-            p_o = self.psi(f_o)
+            p_n = self._local_pod(f_n, True)
+            p_o = self._local_pod(f_o, True)
             loss += torch.norm(p_n - p_o, 2)
         return loss / len(new_features)
 
