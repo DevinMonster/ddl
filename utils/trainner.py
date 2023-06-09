@@ -50,7 +50,7 @@ class Trainner:
         self.bs = params['batch_size']  # batch size
         self.device = device
         self.new_model = new_model.to(device)
-        self.old_model = old_model.to(device) if old_model is not None else None
+        self.old_model = old_model
         self.train_ds = train
         self.valid_ds = valid
         self.test_ds = test
@@ -78,9 +78,9 @@ class Trainner:
         self.model_pth = os.path.join(self.model_dict_path, self.model_dict_name)
         self.log_pth = os.path.join(self.log_path, self.log_name)
         # 特征POD使用
-        self.feature_extractor_new = create_feature_extractor(self.new_model, features_name[params['backbone']])
+        self.feature_extractor_new = create_feature_extractor(self.new_model, ['backbone'])
         if self.old_model is not None:
-            self.feature_extractor_old = create_feature_extractor(self.old_model, features_name[params['backbone']])
+            self.feature_extractor_old = create_feature_extractor(self.old_model, ['backbone'])
 
     def train(self):
         if self.old_model is not None:
@@ -94,23 +94,26 @@ class Trainner:
             self.new_model.train()
             train_losses = []
             for i, (img, msk) in enumerate(tqdm(self.train_ds)):
+                # cpu上处理旧模型的输出
+                with torch.no_grad():
+                    old_f = None
+                    if self.old_model is not None:
+                        y_old = self.old_model(img)['out']
+                        # 伪标签技术
+                        msk = pseudo_label(msk, y_old)
+                        old_f = self.feature_extractor_old(img)
                 img = img.to(self.device)
                 msk = msk.to(self.device)
                 # amp混合精度
                 with autocast(self.device.type):
                     y_new = self.new_model(img)['out']
-                    # PLOP改进
-                    if self.old_model is not None:
-                        y_old = self.old_model(img)['out']
-                        # 伪标签技术
-                        msk = pseudo_label(msk, y_old)
-                    if self.old_model is not None:
-                        # 特征POD技术
-                        new_f, old_f = self.calc_pod(img)
-                        uce, dis = self.ce(y_new, msk), self.distil(new_f, old_f, img.shape)
-                        l = uce + dis
-                    else:
-                        l = self.ce(y_new, msk)
+                    l = self.ce(y_new, msk)
+                if self.old_model is not None:
+                    # 特征POD技术
+                    new_f = self.feature_extractor_new(img)
+                    dis = self.distil(new_f, old_f, img.shape).to(self.device)
+                    l += dis
+
                 self.optimizer.zero_grad()
                 l.backward()
                 self.optimizer.step()
