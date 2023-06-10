@@ -29,8 +29,8 @@ class Trainner:
         self.valid_ds = valid
         self.test_ds = test
         self.epochs = params['epochs']
-        self.optimizer = torch.optim.SGD(new_model.parameters(),
-                                         lr, momentum=0.9, nesterov=True)
+        self.optimizer = torch.optim.SGD(new_model.parameters(), lr, momentum=0.9,
+                                         weight_decay=params['weight_decay'], nesterov=True)
         self.scheduler = StepLR(self.optimizer, 5000, 0.1)
         if params['lr_policy'] == 'cos':
             self.scheduler = CosineAnnealingLR(self.optimizer, self.epochs)
@@ -64,12 +64,15 @@ class Trainner:
             self.new_model.train()
             train_losses = []
             for i, (img, msk) in enumerate(tqdm(self.train_ds)):
+                # SSUL改进
+                if self.old_model is not None:
+                    with torch.no_grad():
+                        y_old = self.old_model(img)['out']
+
                 img = img.to(self.device)
                 msk = msk.to(self.device)
                 with autocast(self.device.type):
                     y_new = self.new_model(img)['out']
-                    # with torch.no_grad():
-                    #     y_old = None if self.old_model is None else self.old_model(img)['out']
                     l = self.loss(y_new, msk)
                 self.optimizer.zero_grad()
                 l.backward()

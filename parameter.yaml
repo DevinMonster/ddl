@@ -44,12 +44,10 @@ weight_decay: 0.0001
 cropped_size: 512
 # classifier name
 classifier_name: 'classifier.4'
+# classifier init method 'kaiming', 'xavier', 'ssul'
+classifier_init_method: 'ssul'
 ###
 
-# do we have checkpoint in current stage
-checkpoint: false
-# classifier init method 'kaiming', 'xavier', 'mib'
-classifier_init_method: 'mib'
 
 # path of dataset
 path_dataset: './data/'

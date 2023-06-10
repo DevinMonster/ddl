@@ -126,7 +126,7 @@ def build_model(params):
 
     # Load new model
     model_new = models_implemented[params['backbone']](num_classes=sum(num_classes))
-    if params['checkpoint'] and os.path.exists(new_pth):
+    if os.path.exists(new_pth):
         state_dict = torch.load(new_pth, 'cpu')
         model_new.load_state_dict(state_dict)
         del state_dict
@@ -144,7 +144,7 @@ def build_model(params):
         state_dict = torch.load(old_pth, 'cpu')
         model_old.load_state_dict(state_dict)
         del state_dict
-
+        # TODO:模型FREEZING
     print("Load Model Finished!")
     return model_new, model_old
 
