@@ -2,37 +2,15 @@ import os
 
 import numpy as np
 import torch.optim
+from torch import autocast
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.models.feature_extraction import create_feature_extractor
 from tqdm import tqdm
 
 from datasets import classes_per_task
 from utils import CSSMetrics
-from utils.loss import CrossEntropyLoss, LocalPODLoss, UnbiasedCrossEntropyLoss
+from utils.loss import LocalPODLoss, UnbiasedCrossEntropyLoss
 from utils.scheduler import PolyLR, StepLR, CosineAnnealingLR
-from torch import autocast
-
-features_name = {
-    'deeplabv3_resnet50': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                           'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
-    'deeplabv3_resnet101': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                            'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
-    'fcn_resnet50': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                     'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
-    'fcn_resnet101': ['backbone.layer1', 'backbone.layer2', 'backbone.layer3', 'backbone.layer4',
-                      'classifier.0', 'classifier.1', 'classifier.2', 'classifier.3'],
-    'deeplabv3_mobilenet_v3_large': ['backbone.0', 'backbone.1', 'backbone.10', 'backbone.11', 'backbone.12',
-                                     'backbone.13', 'backbone.14',
-                                     'backbone.15', 'backbone.16', 'backbone.2', 'backbone.3', 'backbone.4',
-                                     'backbone.5', 'backbone.6',
-                                     'backbone.7', 'backbone.8', 'backbone.9', 'classifier.0', 'classifier.1',
-                                     'classifier.2', 'classifier.3'],
-    'lraspp_mobilenet_v3_large': ['backbone.0', 'backbone.1', 'backbone.10', 'backbone.11', 'backbone.12',
-                                  'backbone.13', 'backbone.14', 'backbone.15', 'backbone.16', 'backbone.2',
-                                  'backbone.3', 'backbone.4', 'backbone.5', 'backbone.6', 'backbone.7', 'backbone.8',
-                                  'backbone.9'],
-
-}
 
 
 def pseudo_label(msk, y_old):
@@ -141,17 +119,13 @@ class Trainner:
             f.write(metrics)
         print("Log saved!")
 
-    def calc_pod(self, imgs):
-        if self.old_model is None: return None
-        new_f = self.feature_extractor_new(imgs)
-        old_f = self.feature_extractor_old(imgs)
-        return new_f, old_f
-
     def valid(self):
         return self._test_model(self.valid_ds)
 
     def test(self):
         print("Start testing...")
+        if self.old_model is not None:
+            self.old_model = self.old_model.to(self.device)
         res = self._test_model(self.test_ds)
         print(res)
         return res
@@ -163,6 +137,10 @@ class Trainner:
                 img = img.to(self.device)
                 msk = msk.to(self.device)
                 with autocast(self.device.type):
+                    if self.old_model is not None:
+                        y_old = self.old_model(img)['out']
+                        # 伪标签技术
+                        msk = pseudo_label(msk, y_old)
                     y_new = self.new_model(img)['out']
                 y_pred = torch.argmax(y_new, dim=1)
                 self.metrics.update(msk.cpu().numpy(), y_pred.cpu().numpy())
