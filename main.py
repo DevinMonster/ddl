@@ -9,7 +9,7 @@ from torch.utils import data
 from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
     RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
-from utils import xavier_init, kaiming_init, mib_init, Trainner
+from utils import xavier_init, kaiming_init, Trainner, rand_new_init
 from utils.config import Config
 
 mean = [0.485, 0.456, 0.406]
@@ -31,7 +31,7 @@ models_implemented = {
 classifier_init = {
     'xavier': xavier_init,
     'kaiming': kaiming_init,
-    'mib': mib_init,
+    "rand_new": rand_new_init,
 }
 
 
@@ -75,17 +75,20 @@ def fetch_datasets(params):
     print("Building datasets...")
     Dataset = increment_datasets[params['dataset']]
     path_dataset = os.path.join(params['path_dataset'], params['dataset'])
-    train_ds = Dataset(path_dataset, is_train=True, download=params['need_download'],
-                       transforms=train_transform, new_labels=new_labels, old_labels=old_labels)
-    if params['partition']:  # use part of train set to be validation set
-        train_len = int(params['partition_r'] * len(train_ds))
-        valid_len = len(train_ds) - train_len
-        train_ds, valid_ds = data.random_split(train_ds, [train_len, valid_len])
+    train_ds, valid_ds, test_ds = None, None, None
+    if params['mode'] == 'train':
+        train_ds = Dataset(path_dataset, is_train=True, download=params['need_download'],
+                           transforms=train_transform, new_labels=new_labels, old_labels=old_labels)
+        if params['partition']:  # use part of train set to be validation set
+            train_len = int(params['partition_r'] * len(train_ds))
+            valid_len = len(train_ds) - train_len
+            train_ds, valid_ds = data.random_split(train_ds, [train_len, valid_len])
+        else:
+            valid_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
+                               transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     else:
-        valid_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                           transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
-    test_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                      transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
+        test_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
+                          transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     print("Datasets build finished!")
     return train_ds, valid_ds, test_ds
 
@@ -94,12 +97,17 @@ def load_data(params, train_ds, valid_ds, test_ds):
     print("Loading Data to dataloader!")
     bs = params['batch_size']
     wkr = params['num_workers']
-    train = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    valid = data.DataLoader(valid_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    test = data.DataLoader(test_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    print(f"train size: {len(train)}, valid size: {len(valid)}, test size: {len(test)}")
+    if train_ds is not None:
+        train_ds = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"train_ds size: {len(train_ds)}")
+    if valid_ds is not None:
+        valid_ds = data.DataLoader(valid_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"valid_ds size: {len(valid_ds)}")
+    if test_ds is not None:
+        test_ds = data.DataLoader(test_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"test_ds size: {len(test_ds)}")
     print("Load data Finished!")
-    return train, valid, test
+    return train_ds, valid_ds, test_ds
 
 
 # build model模块
@@ -109,9 +117,10 @@ def build_model(params):
     print(f"classes per task: {num_classes}")
 
     # get path of old and new model
+    init_name = params['classifier_init_method']
     model_path = f"{params['path_state']}/{params['dataset']}/{params['task']}/"
-    new_name = f"{params['backbone']}_{params['stage']}.pth"
-    old_name = f"{params['backbone']}_{params['stage'] - 1}.pth"
+    new_name = f"{params['backbone']}_{params['stage']}_{init_name}.pth"
+    old_name = f"{params['backbone']}_{params['stage'] - 1}_{init_name}.pth"
     new_pth = os.path.join(model_path, new_name)
     old_pth = os.path.join(model_path, old_name)
 
@@ -122,9 +131,10 @@ def build_model(params):
         model_new.load_state_dict(state_dict)
         del state_dict
     elif params['stage'] > 0 and os.path.exists(old_pth):
-        init_name = params['classifier_init_method']
         state_dict = classifier_init[init_name](params, torch.load(old_pth, 'cpu'), num_classes)
+        print(f"init by {init_name}!")
         model_new.load_state_dict(state_dict)
+        del state_dict
 
     # Load old model
     model_old = None
