@@ -134,13 +134,13 @@ class Trainner:
         self.new_model.eval()
         with torch.no_grad():
             for i, (img, msk) in enumerate(tqdm(dataset)):
+                if self.old_model is not None:
+                    y_old = self.old_model(img)['out']
+                    # 伪标签技术
+                    msk = pseudo_label(msk, y_old)
                 img = img.to(self.device)
                 msk = msk.to(self.device)
                 with autocast(self.device.type):
-                    if self.old_model is not None:
-                        y_old = self.old_model(img)['out']
-                        # 伪标签技术
-                        msk = pseudo_label(msk, y_old)
                     y_new = self.new_model(img)['out']
                 y_pred = torch.argmax(y_new, dim=1)
                 self.metrics.update(msk.cpu().numpy(), y_pred.cpu().numpy())
