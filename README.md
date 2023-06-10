@@ -17,14 +17,14 @@
 2. 安装如下环境及依赖
    + ```python3.7.x (x >= 9)```
    + ```numpy==1.21.5```
-   + ```torch==1.8+ ```
-   + ```torchvision==0.9+```
+   + ```torch==1.8及以上```
+   + ```torchvision==0.9及以上```
    + ```tqdm==4.64.0```
    + ```matplotlib==3.5.3```
    + ```PyYAML==6.0```
    + ```tensorboard```
 3. 安装好git后，使用如下命令克隆项目到本地（远端服务器）
-   + 国内：```git clone -b 分支名(main\MiB\PLOP) https://gitee.com/devinmonster/ddl.git```
-   + 国际：```git clone -b 分支名(main\MiB\PLOP) https://github.com/DevinMonster/ddl.git```
+   + 国内：```git clone -b PLOP https://gitee.com/devinmonster/ddl.git ddl-plop```
+   + 国际：```git clone -b PLOP https://github.com/DevinMonster/ddl.git ddl-plop```
 4. 修改```parameter.yaml```中的相关参数
 5. 运行训练或测试```python main.py```
