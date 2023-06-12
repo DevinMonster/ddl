@@ -130,13 +130,11 @@ def build_model(params):
     if params['checkpoint'] and os.path.exists(new_pth):
         state_dict = torch.load(new_pth, 'cpu')
         model_new.load_state_dict(state_dict)
-        model_new = nn.DataParallel(model_new)
         del state_dict
     elif params['stage'] > 0 and os.path.exists(old_pth):
         init_name = params['classifier_init_method']
         state_dict = classifier_init[init_name](params, torch.load(old_pth, 'cpu'), num_classes)
         model_new.load_state_dict(state_dict)
-        model_new = nn.DataParallel(model_new)
         del state_dict
 
     # Load old model
@@ -146,7 +144,6 @@ def build_model(params):
         model_old = models_implemented[params['backbone']](num_classes=sum(old_classes))
         state_dict = torch.load(old_pth, 'cpu')
         model_old.load_state_dict(state_dict)
-        model_old = nn.DataParallel(model_old)
         del state_dict
 
     print("Load Model Finished!")

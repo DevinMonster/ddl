@@ -64,13 +64,12 @@ class Trainner:
                 cur_res = self._valid()
                 self.scheduler.step()
                 # update best model
-                f.write(f"epoch:{epoch}\n {cur_res}\n")
+                f.write(f"epoch:{epoch}\n {self.metrics.to_str(cur_res)}\n")
                 if float(cur_res['Mean IoU']) > mIOU_best:
                     mIOU_best = float(cur_res['Mean IoU'])
                     print(f"current best mIoU: {mIOU_best}, saving model...")
                     best_model_dict = self.new_model.state_dict()
                     torch.save(best_model_dict, self.model_pth)
-            f.write(f"Test result:\n {self.test()}\n")
         print("train step finished!")
         print(f"best mIoU: {mIOU_best}")
         print(f"best model state saved to: {self.model_pth}")
