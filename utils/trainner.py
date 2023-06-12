@@ -28,7 +28,8 @@ class Trainner:
         if params['lr_policy'] == 'cos':
             self.scheduler = CosineAnnealingLR(self.optimizer, self.epochs)
         elif params['lr_policy'] == 'poly':
-            self.scheduler = PolyLR(self.optimizer, params['epochs'] * len(train), params['lr_power'])
+            l = len(train) if train is not None else 1
+            self.scheduler = PolyLR(self.optimizer, params['epochs'] * l, params['lr_power'])
         elif params['lr_policy'] == 'step':
             self.scheduler = StepLR(self.optimizer, 5000, 0.1)
         else:
