@@ -54,7 +54,7 @@ class Trainner:
         if self.old_model is not None:
             self.old_model.eval()
 
-        best_model_dict, mIOU_best = self.new_model.state_dict(), 0
+        best_model_dict, mIOU_best = self.new_model.state_dict(), self._valid()['Mean IoU']
         # start training
         print("Training start...")
         with open(self.log_pth, "w") as f:
