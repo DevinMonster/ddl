@@ -80,7 +80,7 @@ class Trainner:
 
     def test(self):
         print("Start testing...")
-        res = self._test_model(self.test_ds)
+        res = self.metrics.to_str(self._test_model(self.test_ds))
         print(res)
         return res
 
