@@ -15,11 +15,15 @@ need_download: false
 
 # task (see more details in ./datasets/task.py)
 #  voc: offline, 19-1, 19-1b, 15-5, 15-5s, 10-5-5...
-task: '19-1'
+task: '15-5'
 # stage (see more details in ./datasets/task.py)
 stage: 0
 
 ### 常用参数
+# coefficient of Knowledge Distillation Loss
+alpha: 1.0
+# overlapped means
+overlapped: true
 # make part of train set to be validation set
 partition: true
 # partition ratio

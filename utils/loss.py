@@ -30,7 +30,7 @@ class UnbiasedCrossEntropyLoss(nn.Module):
 
     def forward(self, inputs, targets):
         old_cl = self.old_cl
-        outputs = torch.zeros_like(inputs)  # B, C (1+V+N), H, W
+        outputs = torch.zeros_like(inputs)  # B, C (1+old+new), H, W
         den = torch.logsumexp(inputs, dim=1)  # B, H, W       den of softmax
         outputs[:, 0] = torch.logsumexp(inputs[:, 0:old_cl], dim=1) - den  # B, H, W       p(O)
         outputs[:, old_cl:] = inputs[:, old_cl:] - den.unsqueeze(dim=1)  # B, N, H, W    p(N_i)
@@ -105,20 +105,3 @@ class UnbiasedKDLoss(nn.Module):
             outputs = -loss
 
         return outputs
-
-
-class MiBLoss(nn.Module):
-    '''
-    simple implement of Modeling the Background Loss
-    '''
-
-    def __init__(self, old_cls, alpha=1., reduction='mean'):
-        super().__init__()
-        # self.uce = UnbiasedCrossEntropyLoss(old_cls, reduction)
-        self.uce = UnbiasedCrossEntropyLoss(old_cls)
-        self.ukd = UnbiasedKDLoss(reduction, alpha)
-
-    def forward(self, y_new, y, y_old=None):
-        new_model_loss = self.uce(y_new, y)
-        distill_loss = self.ukd(y_new, y_old) if y_old is not None else 1e-6
-        return new_model_loss + distill_loss

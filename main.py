@@ -77,7 +77,8 @@ def fetch_datasets(params):
     Dataset = increment_datasets[params['dataset']]
     path_dataset = os.path.join(params['path_dataset'], params['dataset'])
     train_ds = Dataset(path_dataset, is_train=True, download=params['need_download'],
-                       transforms=train_transform, new_labels=new_labels, old_labels=old_labels)
+                       transforms=train_transform, new_labels=new_labels,
+                       old_labels=old_labels, overlapped=params['overlapped'])
     if params['partition']:  # use part of train set to be validation set
         train_len = int(params['partition_r'] * len(train_ds))
         valid_len = len(train_ds) - train_len

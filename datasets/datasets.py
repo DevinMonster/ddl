@@ -22,7 +22,7 @@ class VOCIncrementSegmentation(Dataset):
 
     def __init__(self, path, year="2012", is_train=True,
                  download=False, transforms=None, img_transform=None,
-                 msk_transform=None, new_labels=None, old_labels=None):
+                 msk_transform=None, new_labels=None, old_labels=None, overlapped=True):
         # check args
         assert year in torchvision.datasets.voc.DATASET_YEAR_DICT, \
             f"we don't have dataset in {year}"
@@ -37,7 +37,7 @@ class VOCIncrementSegmentation(Dataset):
         new_labels = self._true_labels(new_labels)
         old_labels = self._true_labels(old_labels)
         # filter index of
-        idx = filter_images(voc, new_labels, old_labels, is_train)
+        idx = filter_images(voc, new_labels, old_labels, overlapped)
         self.dataset = Subset(voc, idx)
 
     def __len__(self):
@@ -56,21 +56,21 @@ class VOCIncrementSegmentation(Dataset):
         return [0] + [v for v in labels if v != 0] if labels else []
 
 
-def filter_images(dataset, new_labels, old_labels=None, train=True):
+def filter_images(dataset, new_labels, old_labels=None, overlapped=True):
     # Filter images without any label in LABELS (using labels not reordered)
     n_lbs = set(new_labels)
     n_lbs.remove(0)
     tot_lbs = set(new_labels + old_labels + [0, 255])
     idx = []
 
-    if train:
-        idx_in_labels = lambda cls: any(c in n_lbs for c in cls) and all(c in tot_lbs for c in cls)
+    if overlapped:
+        idx_in_labels = lambda cls: any(c in n_lbs for c in cls)
     else:
-        idx_in_labels = lambda cls: all(c in tot_lbs for c in cls)
+        idx_in_labels = lambda cls: any(c in n_lbs for c in cls) and all(c in tot_lbs for c in cls)
 
     for i, (_, msk) in tqdm(enumerate(dataset)):
-        cls = np.unique(np.array(msk))
-        if idx_in_labels(cls):
+        cls_in_pic = np.unique(np.array(msk))
+        if idx_in_labels(cls_in_pic):
             idx.append(i)
     return idx
 
