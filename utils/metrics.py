@@ -30,10 +30,6 @@ ADE_CLASSES = [
 
 
 class _StreamMetrics(object):
-    def __init__(self):
-        """ Overridden by subclasses """
-        raise NotImplementedError()
-
     def update(self, gt, pred):
         """ Overridden by subclasses """
         raise NotImplementedError()
@@ -57,10 +53,8 @@ class StreamSegMetrics(_StreamMetrics):
     """
 
     def __init__(self, n_classes, dataset):
-        super().__init__()
         self.n_classes = n_classes
         self.confusion_matrix = np.zeros((n_classes, n_classes))
-
         if dataset == 'voc':
             self.CLASSES = VOC_CLASSES
         elif dataset == 'ade':

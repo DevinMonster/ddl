@@ -22,7 +22,6 @@
    + ```tqdm==4.64.0```
    + ```matplotlib==3.5.3```
    + ```PyYAML==6.0```
-   + ```tensorboard```
 3. 安装好git后，使用如下命令克隆项目到本地（远端服务器）
    + 国内：```git clone -b MiB https://gitee.com/devinmonster/ddl.git ddl-mib```
    + 国际：```git clone -b MiB https://github.com/DevinMonster/ddl.git ddl-mib```

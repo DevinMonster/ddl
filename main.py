@@ -6,11 +6,12 @@ import torch
 import torchvision.models
 from torch.utils import data
 
-from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
+from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RandomResizedCrop, \
     RandomHorizontalFlip, Resize, CenterCrop
 from datasets import get_task_labels, classes_per_task
 from utils import xavier_init, kaiming_init, mib_init, Trainner, rand_new_init
 from utils.config import Config
+from torch import nn
 
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
@@ -59,7 +60,6 @@ def fetch_datasets(params):
         RandomResizedCrop(params['cropped_size'], (0.5, 2.)),
         RandomHorizontalFlip(),
         ToTensor(),
-        RemoveEdge(),
         Normalize(mean, std)
     ])
     valid_test_transform = Compose([
@@ -76,18 +76,21 @@ def fetch_datasets(params):
     print("Building datasets...")
     Dataset = increment_datasets[params['dataset']]
     path_dataset = os.path.join(params['path_dataset'], params['dataset'])
-    train_ds = Dataset(path_dataset, is_train=True, download=params['need_download'],
-                       transforms=train_transform, new_labels=new_labels,
-                       old_labels=old_labels, overlapped=params['overlapped'])
-    if params['partition']:  # use part of train set to be validation set
-        train_len = int(params['partition_r'] * len(train_ds))
-        valid_len = len(train_ds) - train_len
-        train_ds, valid_ds = data.random_split(train_ds, [train_len, valid_len])
+    train_ds, valid_ds, test_ds = None, None, None
+    if params['mode'] == 'train':
+        train_ds = Dataset(path_dataset, is_train=True, download=params['need_download'],
+                           transforms=train_transform, new_labels=new_labels,
+                           old_labels=old_labels, overlapped=params['overlapped'])
+        if params['partition']:  # use part of train set to be validation set
+            train_len = int(params['partition_r'] * len(train_ds))
+            valid_len = len(train_ds) - train_len
+            train_ds, valid_ds = data.random_split(train_ds, [train_len, valid_len])
+        else:
+            valid_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
+                               transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     else:
-        valid_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                           transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
-    test_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
-                      transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
+        test_ds = Dataset(path_dataset, is_train=False, download=params['need_download'],
+                          transforms=valid_test_transform, new_labels=new_labels, old_labels=old_labels)
     print("Datasets build finished!")
     return train_ds, valid_ds, test_ds
 
@@ -96,10 +99,15 @@ def load_data(params, train_ds, valid_ds, test_ds):
     print("Loading Data to dataloader!")
     bs = params['batch_size']
     wkr = params['num_workers']
-    train = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    valid = data.DataLoader(valid_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    test = data.DataLoader(test_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
-    print(f"train size: {len(train)}, valid size: {len(valid)}, test size: {len(test)}")
+    train, valid, test = None, None, None
+    if params['mode'] == "train":
+        train = data.DataLoader(train_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"train size {len(train)}")
+        valid = data.DataLoader(valid_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        print(f"valid size {len(valid)}")
+    else:
+        test = data.DataLoader(test_ds, bs, num_workers=wkr, drop_last=True, persistent_workers=True)
+        f"test size: {len(test)}"
     print("Load data Finished!")
     return train, valid, test
 
@@ -122,11 +130,14 @@ def build_model(params):
     if params['checkpoint'] and os.path.exists(new_pth):
         state_dict = torch.load(new_pth, 'cpu')
         model_new.load_state_dict(state_dict)
+        model_new = nn.DataParallel(model_new)
         del state_dict
     elif params['stage'] > 0 and os.path.exists(old_pth):
         init_name = params['classifier_init_method']
         state_dict = classifier_init[init_name](params, torch.load(old_pth, 'cpu'), num_classes)
         model_new.load_state_dict(state_dict)
+        model_new = nn.DataParallel(model_new)
+        del state_dict
 
     # Load old model
     model_old = None
@@ -135,6 +146,7 @@ def build_model(params):
         model_old = models_implemented[params['backbone']](num_classes=sum(old_classes))
         state_dict = torch.load(old_pth, 'cpu')
         model_old.load_state_dict(state_dict)
+        model_old = nn.DataParallel(model_old)
         del state_dict
 
     print("Load Model Finished!")
@@ -142,6 +154,7 @@ def build_model(params):
 
 
 def solve(params):
+    print(params)
     device = try_gpu()
     print(f"working on dataset:{params['dataset']} "
           f"on task:{params['task']} at stage:{params['stage']}"

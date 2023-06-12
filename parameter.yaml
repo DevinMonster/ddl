@@ -42,8 +42,6 @@ lr: 0.01
 lr_policy: 'poly'
 # learning rate decreasing power of lr_policy='poly'
 lr_power: 0.9
-# loss 'MiB', 'CE'
-loss: 'MiB'
 # weight decay
 weight_decay: 0.0001
 # resize the input picture and mask to cropped_size

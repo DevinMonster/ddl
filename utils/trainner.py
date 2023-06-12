@@ -2,12 +2,14 @@ import os
 
 import numpy as np
 import torch.optim
+from torch import autocast
 from tqdm import tqdm
 
 from datasets import classes_per_task
 from utils import StreamSegMetrics
-from utils.loss import UnbiasedKDLoss, CrossEntropyLoss, UnbiasedCrossEntropyLoss
+from utils.loss import UnbiasedKDLoss, UnbiasedCrossEntropyLoss
 from utils.scheduler import PolyLR, StepLR, CosineAnnealingLR
+
 
 class Trainner:
     def __init__(self, params, new_model, old_model, train, valid, test, device):
@@ -55,7 +57,6 @@ class Trainner:
         best_model_dict, mIOU_best = self.new_model.state_dict(), 0
         # start training
         print("Training start...")
-        print(self.params)
         with open(self.log_pth, "w") as f:
             f.write(f"hyper-parameters:\n {self.params}\n")
             for epoch in range(self.epochs):
@@ -89,8 +90,9 @@ class Trainner:
             for i, (img, msk) in enumerate(tqdm(dataset)):
                 img = img.to(self.device)
                 msk = msk.to(self.device)
-                y_new = self.new_model(img)['out']
-                y_pred = torch.argmax(y_new, dim=1)
+                with autocast(self.device.type):
+                    y_new = self.new_model(img)['out']
+                    y_pred = torch.argmax(y_new, dim=1)
                 self.metrics.update(msk.cpu().numpy(), y_pred.cpu().numpy())
         res = self.metrics.get_results()
         self.metrics.reset()
@@ -103,9 +105,12 @@ class Trainner:
         for i, (img, msk) in enumerate(tqdm(self.train_ds)):
             img = img.to(self.device)
             msk = msk.to(self.device)
-            y_new = self.new_model(img)['out']
-            y_old = self.old_model(img)['out'] if self.old_model is not None else None
-            l = self.uce(y_new, msk) + self.ukd(y_new, y_old)
+            with autocast(self.device.type):
+                y_new = self.new_model(img)['out']
+                y_old = self.old_model(img)['out'] if self.old_model is not None else None
+                l = self.uce(y_new, msk)
+                if y_old is not None:
+                    l += self.ukd(y_new, y_old)
             self.optimizer.zero_grad()
             l.backward()
             self.optimizer.step()

@@ -29,6 +29,7 @@ class UnbiasedCrossEntropyLoss(nn.Module):
         self.old_cl = old_cl
 
     def forward(self, inputs, targets):
+        new_cl = inputs.shape[1]
         old_cl = self.old_cl
         outputs = torch.zeros_like(inputs)  # B, C (1+old+new), H, W
         den = torch.logsumexp(inputs, dim=1)  # B, H, W       den of softmax
@@ -36,7 +37,8 @@ class UnbiasedCrossEntropyLoss(nn.Module):
         outputs[:, old_cl:] = inputs[:, old_cl:] - den.unsqueeze(dim=1)  # B, N, H, W    p(N_i)
 
         labels = targets.clone()  # B, H, W
-        labels[targets < old_cl] = 0  # just to be sure that all labels old belongs to zero
+        # just to be sure that all labels old and future belongs to zero
+        labels[(targets < old_cl) | (targets >= new_cl)] = 0
 
         return F.nll_loss(outputs, labels, ignore_index=self.ignore_index, reduction=self.reduction)
 
