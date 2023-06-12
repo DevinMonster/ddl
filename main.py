@@ -11,7 +11,6 @@ from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, Ran
 from datasets import get_task_labels, classes_per_task
 from utils import xavier_init, kaiming_init, mib_init, Trainner, rand_new_init
 from utils.config import Config
-from torch import nn
 
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]

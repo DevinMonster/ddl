@@ -37,7 +37,7 @@ class VOCIncrementSegmentation(Dataset):
         new_labels = self._true_labels(new_labels)
         old_labels = self._true_labels(old_labels)
         # filter index of
-        idx = filter_images(voc, new_labels, old_labels, overlapped)
+        idx = filter_images(voc, new_labels, old_labels, overlapped, is_train)
         self.dataset = Subset(voc, idx)
 
     def __len__(self):
@@ -56,14 +56,14 @@ class VOCIncrementSegmentation(Dataset):
         return [0] + [v for v in labels if v != 0] if labels else []
 
 
-def filter_images(dataset, new_labels, old_labels=None, overlapped=True):
+def filter_images(dataset, new_labels, old_labels=None, overlapped=True, train=True):
     # Filter images without any label in LABELS (using labels not reordered)
     n_lbs = set(new_labels)
     n_lbs.remove(0)
     tot_lbs = set(new_labels + old_labels + [0, 255])
     idx = []
 
-    if overlapped:
+    if overlapped and train:
         idx_in_labels = lambda cls: any(c in n_lbs for c in cls)
     else:
         idx_in_labels = lambda cls: any(c in n_lbs for c in cls) and all(c in tot_lbs for c in cls)
