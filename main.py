@@ -120,8 +120,8 @@ def build_model(params):
 
     # get path of old and new model
     model_path = f"{params['path_state']}/{params['dataset']}/{params['task']}/"
-    new_name = f"{params['backbone']}_{params['stage']}.pth"
-    old_name = f"{params['backbone']}_{params['stage'] - 1}.pth"
+    new_name = f"{params['backbone']}_{params['stage']}_{params['classifier_init_method']}.pth"
+    old_name = f"{params['backbone']}_{params['stage'] - 1}_{params['classifier_init_method']}.pth"
     new_pth = os.path.join(model_path, new_name)
     old_pth = os.path.join(model_path, old_name)
 
