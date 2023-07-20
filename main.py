@@ -3,7 +3,7 @@ import random
 
 import numpy as np
 import torch
-import torchvision.models
+from torchvision.models import segmentation, vision_transformer
 from torch.utils import data
 
 from datasets import VOCIncrementSegmentation, ToTensor, Normalize, Compose, RemoveEdge, RandomResizedCrop, \
@@ -20,12 +20,13 @@ increment_datasets = {
 }
 
 models_implemented = {
-    'deeplabv3_resnet50': torchvision.models.segmentation.deeplabv3_resnet50,
-    'deeplabv3_resnet101': torchvision.models.segmentation.deeplabv3_resnet101,
-    'fcn_resnet50': torchvision.models.segmentation.fcn_resnet50,
-    'fcn_resnet101': torchvision.models.segmentation.fcn_resnet101,
-    'deeplabv3_mobilenet_v3_large': torchvision.models.segmentation.deeplabv3_mobilenet_v3_large,
-    'lraspp_mobilenet_v3_large': torchvision.models.segmentation.lraspp_mobilenet_v3_large,
+    'deeplabv3_resnet50': segmentation.deeplabv3_resnet50,
+    'deeplabv3_resnet101': segmentation.deeplabv3_resnet101,
+    'fcn_resnet50': segmentation.fcn_resnet50,
+    'fcn_resnet101': segmentation.fcn_resnet101,
+    'deeplabv3_mobilenet_v3_large': segmentation.deeplabv3_mobilenet_v3_large,
+    'lraspp_mobilenet_v3_large': segmentation.lraspp_mobilenet_v3_large,
+    'vit': vision_transformer,
 }
 
 classifier_init = {
